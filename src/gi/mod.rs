@@ -4,28 +4,20 @@ use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderContext;
-use bevy::render::view::{check_visibility, VisibilitySystems};
 use bevy::render::{Render, RenderApp, RenderSet};
 use bevy::sprite::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
-use types::{LightOccluder2D, OmniLightSource2D};
 
 use self::pipeline::GiTargets;
 use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
 use crate::gi::constants::*;
 use crate::gi::pipeline::{
-    system_queue_bind_groups,
-    system_setup_gi_pipeline,
-    GiTargetsWrapper,
-    LightPassPipeline,
+    system_queue_bind_groups, system_setup_gi_pipeline, GiTargetsWrapper, LightPassPipeline,
     LightPassPipelineBindGroups,
 };
 use crate::gi::pipeline_assets::{
-    system_extract_pipeline_assets,
-    system_load_embedded_shader_dependencies,
-    system_prepare_pipeline_assets,
-    EmbeddedShaderDependencies,
-    LightPassPipelineAssets,
+    system_extract_pipeline_assets, system_load_embedded_shader_dependencies,
+    system_prepare_pipeline_assets, EmbeddedShaderDependencies, LightPassPipelineAssets,
 };
 use crate::gi::resource::ComputedTargetSizes;
 use crate::prelude::BevyMagicLight2DSettings;
@@ -48,10 +40,8 @@ pub struct BevyMagicLight2DPlugin;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub struct LightPass2DRenderLabel;
 
-impl Plugin for BevyMagicLight2DPlugin
-{
-    fn build(&self, app: &mut App)
-    {
+impl Plugin for BevyMagicLight2DPlugin {
+    fn build(&self, app: &mut App) {
         app.add_plugins((
             ExtractResourcePlugin::<GiTargetsWrapper>::default(),
             Material2dPlugin::<PostProcessingMaterial>::default(),
@@ -71,15 +61,8 @@ impl Plugin for BevyMagicLight2DPlugin
             )
                 .chain(),
         )
-        .add_systems(PreUpdate, handle_window_resize)
-        .add_systems(
-            PostUpdate,
-            (
-                check_visibility::<With<OmniLightSource2D>>,
-                check_visibility::<With<LightOccluder2D>>,
-            )
-                .in_set(VisibilitySystems::CheckVisibility),
-        );
+        .add_systems(PreUpdate, handle_window_resize);
+
         embedded_asset!(app, "shaders/gi_attenuation.wgsl");
         embedded_asset!(app, "shaders/gi_camera.wgsl");
         embedded_asset!(app, "shaders/gi_halton.wgsl");
@@ -112,8 +95,7 @@ impl Plugin for BevyMagicLight2DPlugin
         )
     }
 
-    fn finish(&self, app: &mut App)
-    {
+    fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<LightPassPipeline>()
@@ -144,7 +126,7 @@ pub fn handle_window_resize(
 ) {
     for _ in window_resized_evr.read() {
         let window = query_window
-            .get_single()
+            .single()
             .expect("Expected exactly one primary window");
 
         *res_target_sizes =
@@ -176,12 +158,11 @@ pub fn detect_target_sizes(
     mut res_target_sizes:  ResMut<ComputedTargetSizes>,
 )
 {
-    let window = query_window.get_single().expect("Expected exactly one primary window");
+    let window = query_window.single().expect("Expected exactly one primary window");
     *res_target_sizes = ComputedTargetSizes::from_window(window, &res_plugin_config.target_scaling_params);
 }
 
-impl render_graph::Node for LightPass2DNode
-{
+impl render_graph::Node for LightPass2DNode {
     fn update(&mut self, _world: &mut World) {}
 
     #[rustfmt::skip]

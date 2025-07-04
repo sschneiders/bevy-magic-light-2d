@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_magic_light_2d::gi::render_layer::ALL_LAYERS;
 use bevy_magic_light_2d::prelude::*;
@@ -25,8 +26,7 @@ pub struct MouseLight;
 #[derive(Component)]
 pub struct Movable;
 
-fn main()
-{
+fn main() {
     // Basic setup.
     App::new()
         .insert_resource(ClearColor(Color::srgba_u8(0, 0, 0, 0)))
@@ -53,6 +53,9 @@ fn main()
                     },
                 }),
             BevyMagicLight2DPlugin,
+            EguiPlugin {
+                enable_multipass_for_primary_context: false,
+            },
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .insert_resource(BevyMagicLight2DSettings {
@@ -86,8 +89,7 @@ fn setup(
     camera_targets: Res<CameraTargets>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-)
-{
+) {
     // Utility functions to compute Z coordinate for floor and ground objects.
     let get_floor_z = |y| -> f32 { Z_BASE_FLOOR - y / SCREEN_SIZE.1 };
     let get_object_z = |y| -> f32 { Z_BASE_OBJECTS - y / SCREEN_SIZE.1 };
@@ -187,7 +189,7 @@ fn setup(
                             floor_image.clone(),
                             TextureAtlas {
                                 layout: floor_atlas.clone(),
-                                index:  id as usize,
+                                index: id as usize,
                             },
                         ),
                     ))
@@ -316,7 +318,7 @@ fn setup(
                                 wall_image.clone(),
                                 TextureAtlas {
                                     layout: wall_atlas.clone(),
-                                    index:  id as usize,
+                                    index: id as usize,
                                 },
                             ),
                         ))
@@ -383,7 +385,7 @@ fn setup(
                             image: decorations_image.clone(),
                             texture_atlas: Some(TextureAtlas {
                                 layout: texture_atlas_handle.clone(),
-                                index:  candle_rect_1,
+                                index: candle_rect_1,
                             }),
                             ..default()
                         },
@@ -415,7 +417,7 @@ fn setup(
                             color: Color::srgb_u8(180, 180, 180),
                             texture_atlas: Some(TextureAtlas {
                                 layout: texture_atlas_handle.clone(),
-                                index:  candle_rect_2,
+                                index: candle_rect_2,
                             }),
                             image: decorations_image.clone(),
                             ..default()
@@ -448,7 +450,7 @@ fn setup(
                             color: Color::srgb_u8(180, 180, 180),
                             texture_atlas: Some(TextureAtlas {
                                 layout: texture_atlas_handle.clone(),
-                                index:  candle_rect_3,
+                                index: candle_rect_3,
                             }),
                             image: decorations_image.clone(),
 
@@ -483,7 +485,7 @@ fn setup(
                             image: decorations_image.clone(),
                             texture_atlas: Some(TextureAtlas {
                                 layout: texture_atlas_handle.clone(),
-                                index:  candle_rect_4,
+                                index: candle_rect_4,
                             }),
                             ..default()
                         },
@@ -513,7 +515,7 @@ fn setup(
                             color: Color::srgb_u8(255, 255, 255),
                             texture_atlas: Some(TextureAtlas {
                                 layout: texture_atlas_handle.clone(),
-                                index:  tomb_rect_1,
+                                index: tomb_rect_1,
                             }),
                             image: decorations_image.clone(),
                             ..default()
@@ -544,7 +546,7 @@ fn setup(
                             color: Color::srgb_u8(255, 255, 255),
                             texture_atlas: Some(TextureAtlas {
                                 layout: texture_atlas_handle.clone(),
-                                index:  tomb_rect_1,
+                                index: tomb_rect_1,
                             }),
                             image: decorations_image.clone(),
                             ..default()
@@ -731,10 +733,10 @@ fn setup(
             -1163.2,
             "outdoor_light_9",
             OmniLightSource2D {
-                intensity:          1.2,
-                falloff:            Vec3::new(50.0, 40.0, 0.03),
-                color:              Color::srgb_u8(0, 206, 94),
-                jitter_intensity:   0.7,
+                intensity: 1.2,
+                falloff: Vec3::new(50.0, 40.0, 0.03),
+                color: Color::srgb_u8(0, 206, 94),
+                jitter_intensity: 0.7,
                 jitter_translation: 3.0,
             },
         ));
@@ -745,10 +747,10 @@ fn setup(
             -1210.0,
             "outdoor_light_10",
             OmniLightSource2D {
-                intensity:          1.2,
-                falloff:            Vec3::new(50.0, 40.0, 0.03),
-                color:              Color::srgb_u8(0, 206, 94),
-                jitter_intensity:   0.7,
+                intensity: 1.2,
+                falloff: Vec3::new(50.0, 40.0, 0.03),
+                color: Color::srgb_u8(0, 206, 94),
+                jitter_intensity: 0.7,
                 jitter_translation: 3.0,
             },
         ));
@@ -781,7 +783,7 @@ fn setup(
     // Add skylight light.
     commands.spawn((
         SkylightLight2D {
-            color:     Color::srgb_u8(93, 158, 179),
+            color: Color::srgb_u8(93, 158, 179),
             intensity: 0.025,
         },
         Name::new("global_skylight"),
@@ -808,12 +810,12 @@ fn setup(
         .insert(RenderLayers::from_layers(ALL_LAYERS))
         .insert(MouseLight);
 
-    let projection = OrthographicProjection {
+    let projection = Projection::Orthographic(OrthographicProjection {
         scale: CAMERA_SCALE,
         near: -2000.0,
         far: 2000.0,
         ..OrthographicProjection::default_2d()
-    };
+    });
 
     // Setup separate camera for floor, walls and objects.
     commands
@@ -821,7 +823,7 @@ fn setup(
             Camera2d,
             Camera {
                 hdr: false,
-                target: RenderTarget::Image(camera_targets.floor_target.clone()),
+                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -835,7 +837,7 @@ fn setup(
             Camera2d,
             Camera {
                 hdr: false,
-                target: RenderTarget::Image(camera_targets.walls_target.clone()),
+                target: RenderTarget::Image(camera_targets.walls_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -849,7 +851,7 @@ fn setup(
             Camera2d,
             Camera {
                 hdr: false,
-                target: RenderTarget::Image(camera_targets.objects_target.clone()),
+                target: RenderTarget::Image(camera_targets.objects_target.clone().into()),
                 ..default()
             },
             projection,
@@ -867,13 +869,12 @@ fn system_control_mouse_light(
     query_cameras: Query<(&Camera, &GlobalTransform), With<SpriteCamera>>,
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
-)
-{
+) {
     let mut rng = rand::rng();
 
     // We only need to iter over first camera matched.
     let (camera, camera_transform) = query_cameras.iter().next().unwrap();
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 
@@ -884,7 +885,10 @@ fn system_control_mouse_light(
         let ndc_to_world = camera_transform.compute_matrix() * camera.clip_from_view().inverse();
         let mouse_world = ndc_to_world.project_point3(mouse_ndc.extend(-1.0));
 
-        let (mut mouse_transform, mut mouse_color) = query_light.single_mut();
+        let Ok((mut mouse_transform, mut mouse_color)) = query_light.single_mut() else {
+            assert!(false, "Mouse light not found!");
+            return;
+        };
         mouse_transform.translation = mouse_world.truncate().extend(1000.0);
 
         if mouse.just_pressed(MouseButton::Right) {
@@ -936,11 +940,10 @@ fn system_move_camera(
 }
 
 fn system_camera_zoom(
-    mut cameras: Query<&mut OrthographicProjection, With<SpriteCamera>>,
+    mut cameras: Query<&mut Projection, With<SpriteCamera>>,
     time: Res<Time>,
     mut scroll_event_reader: EventReader<MouseWheel>,
-)
-{
+) {
     let mut projection_delta = 0.;
 
     for event in scroll_event_reader.read() {
@@ -952,7 +955,12 @@ fn system_camera_zoom(
     }
 
     for mut camera in cameras.iter_mut() {
-        camera.scale = (camera.scale - projection_delta * time.delta_secs())
-            .clamp(CAMERA_SCALE_BOUNDS.0, CAMERA_SCALE_BOUNDS.1);
+        match &mut *camera {
+            Projection::Orthographic(proj) => {
+                proj.scale = (proj.scale - projection_delta * time.delta_secs())
+                    .clamp(CAMERA_SCALE_BOUNDS.0, CAMERA_SCALE_BOUNDS.1);
+            }
+            _ => continue, // Skip if not orthographic projection
+        }
     }
 }

@@ -3,8 +3,7 @@ use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy_magic_light_2d::prelude::*;
 
-fn main()
-{
+fn main() {
     // Basic setup.
     App::new()
         .insert_resource(ClearColor(Color::srgba_u8(255, 255, 255, 0)))
@@ -18,7 +17,7 @@ fn main()
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
             BevyMagicLight2DPlugin,
         ))
@@ -27,8 +26,7 @@ fn main()
         .run();
 }
 
-fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
-{
+fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>) {
     let mut occluders = vec![];
     let occluder_entity = commands
         .spawn((
@@ -112,7 +110,7 @@ fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
             Camera2d,
             Camera {
                 hdr: true,
-                target: RenderTarget::Image(camera_targets.floor_target.clone()),
+                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..Default::default()
             },
             Name::new("main_camera"),
@@ -126,9 +124,8 @@ fn system_move_camera(
     mut query_camera: Query<&mut Transform, With<SpriteCamera>>,
 
     keyboard: Res<ButtonInput<KeyCode>>,
-)
-{
-    if let Ok(mut camera_transform) = query_camera.get_single_mut() {
+) {
+    if let Ok(mut camera_transform) = query_camera.single_mut() {
         let speed = 10.0;
 
         if keyboard.pressed(KeyCode::KeyW) {
