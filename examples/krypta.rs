@@ -865,7 +865,7 @@ fn setup(
 fn system_control_mouse_light(
     mut commands: Commands,
     window: Query<&Window, With<PrimaryWindow>>,
-    mut query_light: Single<(&mut Transform, &mut OmniLightSource2D), With<MouseLight>>,
+    query_light: Single<(&mut Transform, &mut OmniLightSource2D), With<MouseLight>>,
     query_cameras: Query<(&Camera, &GlobalTransform), With<SpriteCamera>>,
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -885,7 +885,7 @@ fn system_control_mouse_light(
         let ndc_to_world = camera_transform.compute_matrix() * camera.clip_from_view().inverse();
         let mouse_world = ndc_to_world.project_point3(mouse_ndc.extend(-1.0));
 
-        let (ref mut mouse_transform, ref mut mouse_color) = &mut *query_light;
+        let (mut mouse_transform, mut mouse_color) = query_light.into_inner();
 
         mouse_transform.translation = mouse_world.truncate().extend(1000.0);
 
@@ -906,7 +906,7 @@ fn system_control_mouse_light(
                 .insert(OmniLightSource2D {
                     jitter_intensity: 0.0,
                     jitter_translation: 0.0,
-                    ..**mouse_color
+                    ..*mouse_color
                 });
         }
     }
