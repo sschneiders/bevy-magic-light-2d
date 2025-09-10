@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_magic_light_2d::gi::render_layer::ALL_LAYERS;
 use bevy_magic_light_2d::prelude::*;
@@ -53,6 +54,9 @@ fn main()
                     },
                 }),
             BevyMagicLight2DPlugin,
+            EguiPlugin {
+                enable_multipass_for_primary_context: false,
+            },
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .insert_resource(BevyMagicLight2DSettings {
@@ -808,12 +812,12 @@ fn setup(
         .insert(RenderLayers::from_layers(ALL_LAYERS))
         .insert(MouseLight);
 
-    let projection = OrthographicProjection {
+    let projection = Projection::Orthographic(OrthographicProjection {
         scale: CAMERA_SCALE,
         near: -2000.0,
         far: 2000.0,
         ..OrthographicProjection::default_2d()
-    };
+    });
 
     // Setup separate camera for floor, walls and objects.
     commands
@@ -821,7 +825,7 @@ fn setup(
             Camera2d,
             Camera {
                 hdr: false,
-                target: RenderTarget::Image(camera_targets.floor_target.clone()),
+                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -835,7 +839,7 @@ fn setup(
             Camera2d,
             Camera {
                 hdr: false,
-                target: RenderTarget::Image(camera_targets.walls_target.clone()),
+                target: RenderTarget::Image(camera_targets.walls_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -849,7 +853,7 @@ fn setup(
             Camera2d,
             Camera {
                 hdr: false,
-                target: RenderTarget::Image(camera_targets.objects_target.clone()),
+                target: RenderTarget::Image(camera_targets.objects_target.clone().into()),
                 ..default()
             },
             projection,
@@ -863,7 +867,7 @@ fn setup(
 fn system_control_mouse_light(
     mut commands: Commands,
     window: Query<&Window, With<PrimaryWindow>>,
-    mut query_light: Query<(&mut Transform, &mut OmniLightSource2D), With<MouseLight>>,
+    query_light: Single<(&mut Transform, &mut OmniLightSource2D), With<MouseLight>>,
     query_cameras: Query<(&Camera, &GlobalTransform), With<SpriteCamera>>,
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -873,7 +877,7 @@ fn system_control_mouse_light(
 
     // We only need to iter over first camera matched.
     let (camera, camera_transform) = query_cameras.iter().next().unwrap();
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 
@@ -884,7 +888,8 @@ fn system_control_mouse_light(
         let ndc_to_world = camera_transform.compute_matrix() * camera.clip_from_view().inverse();
         let mouse_world = ndc_to_world.project_point3(mouse_ndc.extend(-1.0));
 
-        let (mut mouse_transform, mut mouse_color) = query_light.single_mut();
+        let (mut mouse_transform, mut mouse_color) = query_light.into_inner();
+
         mouse_transform.translation = mouse_world.truncate().extend(1000.0);
 
         if mouse.just_pressed(MouseButton::Right) {
@@ -936,7 +941,7 @@ fn system_move_camera(
 }
 
 fn system_camera_zoom(
-    mut cameras: Query<&mut OrthographicProjection, With<SpriteCamera>>,
+    mut cameras: Query<&mut Projection, With<SpriteCamera>>,
     time: Res<Time>,
     mut scroll_event_reader: EventReader<MouseWheel>,
 )
@@ -952,7 +957,12 @@ fn system_camera_zoom(
     }
 
     for mut camera in cameras.iter_mut() {
-        camera.scale = (camera.scale - projection_delta * time.delta_secs())
-            .clamp(CAMERA_SCALE_BOUNDS.0, CAMERA_SCALE_BOUNDS.1);
+        match &mut *camera {
+            Projection::Orthographic(proj) => {
+                proj.scale = (proj.scale - projection_delta * time.delta_secs())
+                    .clamp(CAMERA_SCALE_BOUNDS.0, CAMERA_SCALE_BOUNDS.1);
+            }
+            _ => continue, // Skip if not orthographic projection
+        }
     }
 }

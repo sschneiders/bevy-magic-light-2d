@@ -2,6 +2,7 @@ use std::f64::consts::PI;
 
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::*;
 use bevy_magic_light_2d::prelude::*;
 
@@ -24,6 +25,9 @@ fn main()
                 ..Default::default()
             }),
             BevyMagicLight2DPlugin,
+            EguiPlugin {
+                enable_multipass_for_primary_context: false,
+            },
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .register_type::<BevyMagicLight2DSettings>()
@@ -117,7 +121,7 @@ fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
         Camera2d,
         Camera {
             hdr: true,
-            target: RenderTarget::Image(camera_targets.floor_target.clone()),
+            target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
             ..Default::default()
         },
         Name::new("main_camera"),
@@ -131,7 +135,7 @@ fn system_move_camera(
     keyboard: Res<ButtonInput<KeyCode>>,
 )
 {
-    if let Ok(mut camera_transform) = query_camera.get_single_mut() {
+    if let Ok(mut camera_transform) = query_camera.single_mut() {
         let speed = 10.0;
 
         if keyboard.pressed(KeyCode::KeyW) {
@@ -163,7 +167,7 @@ fn move_collider(mut query_mover: Query<&mut Transform, With<Mover>>, time: Res<
     let curr_time = elapsed % cycle_secs;
     let theta = (curr_time / cycle_secs) * 2. * PI;
 
-    if let Ok(mut transform) = query_mover.get_single_mut() {
+    if let Ok(mut transform) = query_mover.single_mut() {
         transform.translation.x = radius * theta.cos() as f32;
         transform.translation.y = radius * theta.sin() as f32;
         transform.rotation = Quat::from_rotation_z(theta as f32);

@@ -162,7 +162,7 @@ pub fn system_extract_pipeline_assets(
     }
 
     {
-        if let Ok((camera, camera_global_transform)) = query_camera.get_single() {
+        if let Ok((camera, camera_global_transform)) = query_camera.single() {
             let camera_params = gpu_pipeline_assets.camera_params.get_mut();
             let projection = camera.clip_from_view();
             let inverse_projection = projection.inverse();
@@ -188,7 +188,7 @@ pub fn system_extract_pipeline_assets(
             probes.data[*gpu_frame_counter as usize].camera_pose =
                 camera_global_transform.translation().truncate();
         } else {
-            warn!("Failed to get camera");
+            log::warn!("Failed to get camera");
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose = Vec2::ZERO;
         }

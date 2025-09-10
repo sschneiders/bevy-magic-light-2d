@@ -120,4 +120,14 @@ impl ComputedTargetSizes
 
         sizes
     }
+
+    pub fn is_valid(&self) -> bool
+    {
+        self.primary_target_usize.x > 0
+            && self.primary_target_usize.y > 0
+            && self.sdf_target_usize.x > 0
+            && self.sdf_target_usize.y > 0
+            && self.probe_grid_usize.x > 0
+            && self.probe_grid_usize.y > 0
+    }
 }

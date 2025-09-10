@@ -18,7 +18,7 @@ fn main()
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
             BevyMagicLight2DPlugin,
         ))
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
             Camera2d,
             Camera {
                 hdr: true,
-                target: RenderTarget::Image(camera_targets.floor_target.clone()),
+                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..Default::default()
             },
             Name::new("main_camera"),
@@ -128,7 +128,7 @@ fn system_move_camera(
     keyboard: Res<ButtonInput<KeyCode>>,
 )
 {
-    if let Ok(mut camera_transform) = query_camera.get_single_mut() {
+    if let Ok(mut camera_transform) = query_camera.single_mut() {
         let speed = 10.0;
 
         if keyboard.pressed(KeyCode::KeyW) {
