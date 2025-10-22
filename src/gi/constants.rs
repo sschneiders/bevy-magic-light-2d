@@ -1,9 +1,10 @@
 use bevy::prelude::*;
+use bevy::asset::Handle;
+use bevy::asset::uuid_handle;
 
-use crate::gi::compositing::PostProcessingMaterial;
+
+
 
 pub const GI_SCREEN_PROBE_SIZE: i32 = 8;
 
-pub const POST_PROCESSING_RECT: Handle<Mesh> = Handle::weak_from_u128(23475629871623176235);
-pub const POST_PROCESSING_MATERIAL: Handle<PostProcessingMaterial> =
-    Handle::weak_from_u128(52374048672736472871);
+pub const POST_PROCESSING_RECT: Handle<Mesh> = uuid_handle!("00000000-0000-0000-0000-000000000001");

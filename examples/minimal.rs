@@ -1,6 +1,5 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::render::camera::RenderTarget;
 use bevy_magic_light_2d::prelude::*;
 
 fn main()
@@ -11,7 +10,7 @@ fn main()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: (512., 512.).into(),
+                    resolution: (512u32, 512u32).into(),
                     title: "Bevy Magic Light 2D: Minimal Example".into(),
                     resizable: false,
                     ..default()
@@ -27,7 +26,7 @@ fn main()
         .run();
 }
 
-fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
+fn setup(mut commands: Commands, _camera_targets: Res<CameraTargets>)
 {
     let mut occluders = vec![];
     let occluder_entity = commands
@@ -111,8 +110,6 @@ fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
         .spawn((
             Camera2d,
             Camera {
-                hdr: true,
-                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..Default::default()
             },
             Name::new("main_camera"),

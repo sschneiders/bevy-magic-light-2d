@@ -1,7 +1,8 @@
 use bevy::image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::prelude::*;
+use bevy::asset::RenderAssetUsages;
 use bevy::render::extract_resource::ExtractResource;
-use bevy::render::render_asset::{RenderAssetUsages, RenderAssets};
+use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::texture::GpuImage;
@@ -83,19 +84,19 @@ impl GiTargets
             ImageFilterMode::Nearest,
         );
 
-        let sdf_target: Handle<Image> = Handle::weak_from_u128(2390847209461232343);
-        let ss_probe_target: Handle<Image> = Handle::weak_from_u128(3423231236817235162);
-        let ss_bounce_target: Handle<Image> = Handle::weak_from_u128(3198273198312367527);
-        let ss_blend_target: Handle<Image> = Handle::weak_from_u128(7782312739182735881);
-        let ss_filter_target: Handle<Image> = Handle::weak_from_u128(8761232615172413412);
-        let ss_pose_target: Handle<Image> = Handle::weak_from_u128(4728165084756128470);
+        let sdf_target: Handle<Image> = images.reserve_handle();
+        let ss_probe_target: Handle<Image> = images.reserve_handle();
+        let ss_bounce_target: Handle<Image> = images.reserve_handle();
+        let ss_blend_target: Handle<Image> = images.reserve_handle();
+        let ss_filter_target: Handle<Image> = images.reserve_handle();
+        let ss_pose_target: Handle<Image> = images.reserve_handle();
 
-        images.insert(sdf_target.id(), sdf_tex);
-        images.insert(ss_probe_target.id(), ss_probe_tex);
-        images.insert(ss_bounce_target.id(), ss_bounce_tex);
-        images.insert(ss_blend_target.id(), ss_blend_tex);
-        images.insert(ss_filter_target.id(), ss_filter_tex);
-        images.insert(ss_pose_target.id(), ss_pose_tex);
+        let _ = images.insert(sdf_target.id(), sdf_tex);
+        let _ = images.insert(ss_probe_target.id(), ss_probe_tex);
+        let _ = images.insert(ss_bounce_target.id(), ss_bounce_tex);
+        let _ = images.insert(ss_blend_target.id(), ss_blend_tex);
+        let _ = images.insert(ss_filter_target.id(), ss_filter_tex);
+        let _ = images.insert(ss_pose_target.id(), ss_pose_tex);
 
         Self {
             sdf_target,
@@ -788,7 +789,7 @@ impl FromWorld for LightPassPipeline
             layout:                           vec![sdf_bind_group_layout.clone()],
             shader:                           shader_sdf,
             shader_defs:                      vec![],
-            entry_point:                      SDF_PIPELINE_ENTRY.into(),
+            entry_point:                      Some(SDF_PIPELINE_ENTRY.into()),
             push_constant_ranges:             vec![],
             zero_initialize_workgroup_memory: false,
         });
@@ -798,7 +799,7 @@ impl FromWorld for LightPassPipeline
             layout:                           vec![ss_probe_bind_group_layout.clone()],
             shader:                           gi_ss_probe,
             shader_defs:                      vec![],
-            entry_point:                      SS_PROBE_PIPELINE_ENTRY.into(),
+            entry_point:                      Some(SS_PROBE_PIPELINE_ENTRY.into()),
             push_constant_ranges:             vec![],
             zero_initialize_workgroup_memory: false,
         });
@@ -808,7 +809,7 @@ impl FromWorld for LightPassPipeline
             layout:                           vec![ss_bounce_bind_group_layout.clone()],
             shader:                           gi_ss_bounce,
             shader_defs:                      vec![],
-            entry_point:                      SS_BOUNCE_PIPELINE_ENTRY.into(),
+            entry_point:                      Some(SS_BOUNCE_PIPELINE_ENTRY.into()),
             push_constant_ranges:             vec![],
             zero_initialize_workgroup_memory: false,
         });
@@ -818,7 +819,7 @@ impl FromWorld for LightPassPipeline
             layout:                           vec![ss_blend_bind_group_layout.clone()],
             shader:                           gi_ss_blend,
             shader_defs:                      vec![],
-            entry_point:                      SS_BLEND_PIPELINE_ENTRY.into(),
+            entry_point:                      Some(SS_BLEND_PIPELINE_ENTRY.into()),
             push_constant_ranges:             vec![],
             zero_initialize_workgroup_memory: false,
         });
@@ -828,7 +829,7 @@ impl FromWorld for LightPassPipeline
             layout:                           vec![ss_filter_bind_group_layout.clone()],
             shader:                           gi_ss_filter,
             shader_defs:                      vec![],
-            entry_point:                      SS_FILTER_PIPELINE_ENTRY.into(),
+            entry_point:                      Some(SS_FILTER_PIPELINE_ENTRY.into()),
             push_constant_ranges:             vec![],
             zero_initialize_workgroup_memory: false,
         });

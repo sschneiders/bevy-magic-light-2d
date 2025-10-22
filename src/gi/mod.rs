@@ -2,14 +2,15 @@ use bevy::asset::embedded_asset;
 use bevy::prelude::*;
 use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
-use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderContext;
-use bevy::render::{Render, RenderApp, RenderSet};
-use bevy::sprite::Material2dPlugin;
+use bevy::render::{Render, RenderApp, RenderSystems};
+use bevy::render::render_resource::PipelineCache;
+use bevy::render::render_resource::ComputePassDescriptor;
+
 use bevy::window::{PrimaryWindow, WindowResized};
 
 use self::pipeline::GiTargets;
-use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
+use crate::gi::compositing_simple::setup_post_processing_camera;
 use crate::gi::constants::*;
 use crate::gi::pipeline::{
     system_queue_bind_groups,
@@ -33,7 +34,7 @@ mod pipeline;
 mod pipeline_assets;
 mod types_gpu;
 
-pub mod compositing;
+pub mod compositing_simple;
 pub mod render_layer;
 pub mod resource;
 pub mod types;
@@ -46,29 +47,37 @@ pub struct BevyMagicLight2DPlugin;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub struct LightPass2DRenderLabel;
 
+#[derive(Resource)]
+pub struct CameraTargets {
+    pub size: UVec2,
+}
+
+impl Default for CameraTargets {
+    fn default() -> Self {
+        Self {
+            size: UVec2::new(1920, 1080),
+        }
+    }
+}
+
+pub struct PostProcessingMaterial;
+
 impl Plugin for BevyMagicLight2DPlugin
 {
     fn build(&self, app: &mut App)
     {
         app.add_plugins((
             ExtractResourcePlugin::<GiTargetsWrapper>::default(),
-            Material2dPlugin::<PostProcessingMaterial>::default(),
         ))
-        .init_resource::<CameraTargets>()
         .init_resource::<GiTargetsWrapper>()
         .init_resource::<BevyMagicLight2DSettings>()
         .init_resource::<ComputedTargetSizes>()
         .init_resource::<EmbeddedShaderDependencies>()
-        .add_systems(
-            PreStartup,
-            (
-                system_load_embedded_shader_dependencies,
-                detect_target_sizes,
-                system_setup_gi_pipeline.after(detect_target_sizes),
-                setup_post_processing_camera.after(system_setup_gi_pipeline),
-            )
-                .chain(),
-        )
+        .init_resource::<CameraTargets>()
+        .add_systems(PreStartup, system_load_embedded_shader_dependencies)
+        .add_systems(PreStartup, detect_target_sizes)
+        .add_systems(PreStartup, system_setup_gi_pipeline.after(detect_target_sizes))
+        .add_systems(PreStartup, setup_post_processing_camera)
         .add_systems(PreUpdate, handle_window_resize);
 
         embedded_asset!(app, "shaders/gi_attenuation.wgsl");
@@ -90,8 +99,8 @@ impl Plugin for BevyMagicLight2DPlugin
             .add_systems(
                 Render,
                 (
-                    system_prepare_pipeline_assets.in_set(RenderSet::Prepare),
-                    system_queue_bind_groups.in_set(RenderSet::Queue),
+                    system_prepare_pipeline_assets.in_set(RenderSystems::Prepare),
+                    system_queue_bind_groups.in_set(RenderSystems::Queue),
                 ),
             );
 
@@ -121,7 +130,6 @@ struct LightPass2DNode {}
 pub fn handle_window_resize(
 
     mut assets_mesh:     ResMut<Assets<Mesh>>,
-    mut assets_material: ResMut<Assets<PostProcessingMaterial>>,
     mut assets_image:    ResMut<Assets<Image>>,
 
     query_window: Query<&Window, With<PrimaryWindow>>,
@@ -131,7 +139,7 @@ pub fn handle_window_resize(
     mut res_gi_targets_wrapper: ResMut<GiTargetsWrapper>,
     mut res_camera_targets:     ResMut<CameraTargets>,
 
-    mut window_resized_evr: EventReader<WindowResized>,
+    mut window_resized_evr: MessageReader<WindowResized>,
 ) {
     for _ in window_resized_evr.read() {
         let window = query_window
@@ -146,7 +154,7 @@ pub fn handle_window_resize(
             return;
         }
         
-        assets_mesh.insert(
+        let _ = assets_mesh.insert(
             POST_PROCESSING_RECT.id(),
             Mesh::from(bevy::math::primitives::Rectangle::new(
                 res_target_sizes.primary_target_size.x,
@@ -154,13 +162,9 @@ pub fn handle_window_resize(
             )),
         );
 
-        assets_material.insert(
-            POST_PROCESSING_MATERIAL.id(),
-            PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
-        );
+        res_camera_targets.size = res_target_sizes.primary_target_usize;
 
         *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
-        *res_camera_targets = CameraTargets::create(&mut assets_image, &res_target_sizes);
     }
 }
 
@@ -211,7 +215,10 @@ impl render_graph::Node for LightPass2DNode
                 let mut pass =
                     render_context
                         .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor { label: Some("light_pass_2d"), ..default() });
+                        .begin_compute_pass(&ComputePassDescriptor { 
+                            label: Some("light_pass_2d"), 
+                            ..default() 
+                        });
 
                 {
                     let grid_w = sdf_w / WORKGROUP_SIZE;

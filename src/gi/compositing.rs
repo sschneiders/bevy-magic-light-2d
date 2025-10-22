@@ -1,27 +1,31 @@
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::pbr::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
 use bevy::prelude::*;
+
 use bevy::reflect::TypePath;
-use bevy::render::mesh::MeshVertexBufferLayoutRef;
+use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::render::render_resource::{
     AsBindGroup,
     Extent3d,
     RenderPipelineDescriptor,
-    ShaderDefVal,
-    ShaderRef,
     SpecializedMeshPipelineError,
     TextureDescriptor,
     TextureDimension,
     TextureFormat,
     TextureUsages,
 };
-use bevy::render::view::RenderLayers;
-use bevy::sprite::{Material2d, Material2dKey};
+use bevy::prelude::*;
+use bevy::asset::Handle;
 
-use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
+
+
+
+
+
+
+use crate::gi::constants::POST_PROCESSING_MATERIAL;
 use crate::gi::pipeline::GiTargetsWrapper;
-use crate::gi::render_layer;
+
 use crate::gi::resource::ComputedTargetSizes;
+
 
 #[derive(Component)]
 pub struct PostProcessingQuad;
@@ -134,9 +138,9 @@ impl CameraTargets
         walls_image.resize(target_size);
         objects_image.resize(target_size);
 
-        let floor_image_handle: Handle<Image> = Handle::weak_from_u128(9127312736151891273);
-        let walls_image_handle: Handle<Image> = Handle::weak_from_u128(7264512947825624361);
-        let objects_image_handle: Handle<Image> = Handle::weak_from_u128(2987462343287146234);
+        let floor_image_handle: Handle<Image> = images.reserve_handle();
+        let walls_image_handle: Handle<Image> = images.reserve_handle();
+        let objects_image_handle: Handle<Image> = images.reserve_handle();
 
         images.insert(floor_image_handle.id(), floor_image);
         images.insert(walls_image_handle.id(), walls_image);
@@ -154,29 +158,7 @@ impl Material2d for PostProcessingMaterial
 {
     fn fragment_shader() -> ShaderRef
     {
-        "embedded://bevy_magic_light_2d/gi/shaders/gi_post_processing.wgsl".into()
-    }
-
-    fn specialize(
-        descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayoutRef,
-        _key: Material2dKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError>
-    {
-        let shader_defs = &mut descriptor
-            .fragment
-            .as_mut()
-            .expect("Fragment shader empty")
-            .shader_defs;
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
-        Ok(())
+        ShaderRef::Path("embedded://bevy_magic_light_2d/gi/shaders/gi_post_processing.wgsl".into())
     }
 }
 
@@ -204,16 +186,25 @@ pub fn setup_post_processing_camera(
     let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
     materials.insert(POST_PROCESSING_MATERIAL.id(), material);
 
-    // This specifies the layer used for the post processing camera, which
-    // will be attached to the post processing camera and 2d quad.
-    let layer = RenderLayers::from_layers(render_layer::CAMERA_LAYER_POST_PROCESSING);
+    // Let layer be unused for now since we're switching to standard materials
+    let _layer = 4u8;
 
     commands.spawn((
         PostProcessingQuad,
         Mesh2d(POST_PROCESSING_RECT.clone()),
-        MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
+        MeshMaterial2d(materials.add(PostProcessingMaterial {
+            ambient_strength: 0.05,
+            diffuse_strength: 1.0,
+            specular_strength: 0.5,
+            shininess: 32.0,
+            occlusion_texture: computed_sizes.occlusion_target.clone(),
+            gi_lighting_texture: computed_sizes.gi_lighting_target.clone(),
+            gi_ambient_light_texture: computed_sizes.gi_ambient_light_target.clone(),
+            scene_texture: computed_sizes.scene_target.clone(),
+            scene_depth_texture: computed_sizes.scene_depth_target.clone(),
+        })),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
-        layer.clone(),
+        Visibility::Visible,
     ));
 
     commands.spawn((
@@ -221,19 +212,9 @@ pub fn setup_post_processing_camera(
         Camera2d, 
         Camera{
             order: 1,
-            hdr: true,
+    
             ..default()
         },
-        Bloom {
-            intensity: 0.1,
-            ..default()
-        },
-        layer
-    ))
-    .insert((
-        PostProcessingQuad,
-        Mesh2d(POST_PROCESSING_RECT.clone()),
-        MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
+        Visibility::Visible,
     ));
 }

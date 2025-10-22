@@ -2,23 +2,30 @@ use bevy::color::palettes;
 use bevy::image::{ImageFilterMode, ImageSamplerDescriptor};
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use bevy::render::camera::RenderTarget;
-use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
-use bevy_magic_light_2d::gi::render_layer::ALL_LAYERS;
 use bevy_magic_light_2d::prelude::*;
 use rand::prelude::*;
+
+use bevy::camera::visibility::RenderLayers;
 
 pub const TILE_SIZE: f32 = 16.0;
 pub const SPRITE_SCALE: f32 = 4.0;
 pub const Z_BASE_FLOOR: f32 = 100.0; // Base z-coordinate for 2D layers.
 pub const Z_BASE_OBJECTS: f32 = 200.0; // Ground object sprites.
-pub const SCREEN_SIZE: (f32, f32) = (1280.0, 720.0);
+pub const Z_BASE_WALLS: f32 = 300.0; // Wall sprites.
+
+pub const SCREEN_SIZE: (u32, u32) = (1280, 720);
 pub const CAMERA_SCALE: f32 = 1.0;
 pub const CAMERA_SCALE_BOUNDS: (f32, f32) = (1., 20.);
 pub const CAMERA_ZOOM_SPEED: f32 = 3.;
+
+// Render layers for different camera views
+pub const CAMERA_LAYER_FLOOR: usize = 0;
+pub const CAMERA_LAYER_WALLS: usize = 1;
+pub const CAMERA_LAYER_OBJECTS: usize = 2;
+pub const ALL_LAYERS: usize = (1 << CAMERA_LAYER_FLOOR) | (1 << CAMERA_LAYER_WALLS) | (1 << CAMERA_LAYER_OBJECTS);
 
 // Misc components.
 #[derive(Component)]
@@ -54,9 +61,7 @@ fn main()
                     },
                 }),
             BevyMagicLight2DPlugin,
-            EguiPlugin {
-                enable_multipass_for_primary_context: false,
-            },
+            EguiPlugin::default(),
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .insert_resource(BevyMagicLight2DSettings {
@@ -87,14 +92,14 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    camera_targets: Res<CameraTargets>,
+    _camera_targets: Res<CameraTargets>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 )
 {
     // Utility functions to compute Z coordinate for floor and ground objects.
-    let get_floor_z = |y| -> f32 { Z_BASE_FLOOR - y / SCREEN_SIZE.1 };
-    let get_object_z = |y| -> f32 { Z_BASE_OBJECTS - y / SCREEN_SIZE.1 };
+    let get_floor_z = |y| -> f32 { Z_BASE_FLOOR - y / SCREEN_SIZE.1 as f32 };
+    let get_object_z = |y| -> f32 { Z_BASE_OBJECTS - y / SCREEN_SIZE.1 as f32 };
 
     // Maze map. 1 represents wall.
     let walls_info: &[&[u8]] = &[
@@ -195,7 +200,7 @@ fn setup(
                             },
                         ),
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_FLOOR))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_FLOOR))
                     .id(),
             );
         }
@@ -324,7 +329,7 @@ fn setup(
                                 },
                             ),
                         ))
-                        .insert(RenderLayers::from_layers(CAMERA_LAYER_WALLS))
+                        .insert(RenderLayers::layer(CAMERA_LAYER_WALLS))
                         .insert(occluder_data)
                         .id(),
                 );
@@ -392,7 +397,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS))
                     .insert(LightOccluder2D {
                         h_size: Vec2::splat(2.0),
                     })
@@ -425,7 +430,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS))
                     .insert(LightOccluder2D {
                         h_size: Vec2::splat(2.0),
                     })
@@ -459,7 +464,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS))
                     .insert(LightOccluder2D {
                         h_size: Vec2::splat(2.0),
                     })
@@ -492,7 +497,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS))
                     .insert(LightOccluder2D {
                         h_size: Vec2::splat(2.0),
                     })
@@ -523,7 +528,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS))
                     .insert(LightOccluder2D {
                         h_size: Vec2::new(72.8, 31.0),
                     })
@@ -554,7 +559,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
+                    .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS))
                     .insert(LightOccluder2D {
                         h_size: Vec2::new(72.8, 31.0),
                     })
@@ -587,7 +592,7 @@ fn setup(
                             ..default()
                         },
                     ))
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_FLOOR)) // Add to floor
+                    .insert(RenderLayers::layer(CAMERA_LAYER_FLOOR)) // Add to floor
                     .insert(Name::new("sewerage_1"))
                     .id(),
             );
@@ -615,7 +620,7 @@ fn setup(
                         ..default()
                     },
                 ))
-                .insert(RenderLayers::from_layers(ALL_LAYERS))
+                .insert(RenderLayers::layer(CAMERA_LAYER_FLOOR).with(CAMERA_LAYER_WALLS).with(CAMERA_LAYER_OBJECTS))
                 .id()
         };
 
@@ -809,7 +814,7 @@ fn setup(
             falloff: Vec3::new(50.0, 20.0, 0.05),
             ..default()
         })
-        .insert(RenderLayers::from_layers(ALL_LAYERS))
+        .insert(RenderLayers::layer(CAMERA_LAYER_FLOOR).with(CAMERA_LAYER_WALLS).with(CAMERA_LAYER_OBJECTS))
         .insert(MouseLight);
 
     let projection = Projection::Orthographic(OrthographicProjection {
@@ -824,8 +829,6 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                hdr: false,
-                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -833,13 +836,11 @@ fn setup(
         ))
         .insert(SpriteCamera)
         .insert(FloorCamera)
-        .insert(RenderLayers::from_layers(CAMERA_LAYER_FLOOR));
+        .insert(RenderLayers::layer(CAMERA_LAYER_FLOOR));
     commands
         .spawn((
             Camera2d,
             Camera {
-                hdr: false,
-                target: RenderTarget::Image(camera_targets.walls_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -847,13 +848,11 @@ fn setup(
         ))
         .insert(SpriteCamera)
         .insert(WallsCamera)
-        .insert(RenderLayers::from_layers(CAMERA_LAYER_WALLS));
+        .insert(RenderLayers::layer(CAMERA_LAYER_WALLS));
     commands
         .spawn((
             Camera2d,
             Camera {
-                hdr: false,
-                target: RenderTarget::Image(camera_targets.objects_target.clone().into()),
                 ..default()
             },
             projection,
@@ -861,7 +860,7 @@ fn setup(
         ))
         .insert(SpriteCamera)
         .insert(ObjectsCamera)
-        .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS));
+        .insert(RenderLayers::layer(CAMERA_LAYER_OBJECTS));
 }
 
 fn system_control_mouse_light(
@@ -885,7 +884,7 @@ fn system_control_mouse_light(
         let window_size = Vec2::new(window.width(), window.height());
         let mut mouse_ndc = (screen_pos / window_size) * 2.0 - Vec2::ONE;
         mouse_ndc = Vec2::new(mouse_ndc.x, -mouse_ndc.y);
-        let ndc_to_world = camera_transform.compute_matrix() * camera.clip_from_view().inverse();
+        let ndc_to_world = camera_transform.to_matrix() * camera.clip_from_view().inverse();
         let mouse_world = ndc_to_world.project_point3(mouse_ndc.extend(-1.0));
 
         let (mut mouse_transform, mut mouse_color) = query_light.into_inner();
@@ -905,7 +904,7 @@ fn system_control_mouse_light(
                     },
                 ))
                 .insert(Name::new("point_light"))
-                .insert(RenderLayers::from_layers(ALL_LAYERS))
+                .insert(RenderLayers::layer(CAMERA_LAYER_FLOOR).with(CAMERA_LAYER_WALLS).with(CAMERA_LAYER_OBJECTS))
                 .insert(OmniLightSource2D {
                     jitter_intensity: 0.0,
                     jitter_translation: 0.0,
@@ -943,7 +942,7 @@ fn system_move_camera(
 fn system_camera_zoom(
     mut cameras: Query<&mut Projection, With<SpriteCamera>>,
     time: Res<Time>,
-    mut scroll_event_reader: EventReader<MouseWheel>,
+    mut scroll_event_reader: MessageReader<MouseWheel>,
 )
 {
     let mut projection_delta = 0.;

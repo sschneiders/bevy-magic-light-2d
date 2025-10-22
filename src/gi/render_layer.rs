@@ -1,14 +1,50 @@
-use bevy::render::view::Layer;
 
-pub const LAYER_FLOOR_ID: Layer = 1;
-pub const LAYER_WALLS_ID: Layer = 2;
-pub const LAYER_OBJECTS_ID: Layer = 3;
 
-pub const CAMERA_LAYER_FLOOR: &[Layer] = &[LAYER_FLOOR_ID];
-pub const CAMERA_LAYER_WALLS: &[Layer] = &[LAYER_WALLS_ID];
-pub const CAMERA_LAYER_OBJECTS: &[Layer] = &[LAYER_OBJECTS_ID];
+use bevy::prelude::*;
 
-pub const ALL_LAYERS: &[Layer] = &[LAYER_FLOOR_ID, LAYER_WALLS_ID, LAYER_OBJECTS_ID];
+pub struct FloorType;
+pub struct WallsType;
+pub struct ObjectsType;
 
-pub const LAYER_POST_PROCESSING_ID: Layer = 42;
-pub const CAMERA_LAYER_POST_PROCESSING: &[Layer] = &[LAYER_POST_PROCESSING_ID];
+pub static MAGIC_LIGHT_2D_FLOOR: usize = 0;
+pub static MAGIC_LIGHT_2D_WALLS: usize = 1;
+pub static MAGIC_LIGHT_2D_OBJECTS: usize = 2;
+pub static MAGIC_LIGHT_2D_LIGHTS: usize = 3;
+
+pub static ALL_LAYERS: [usize; 4] = [0, 1, 2, 3];
+
+
+pub mod render_layer {
+    use super::*;
+
+    pub struct PostProcessingType;
+
+    pub static CAMERA_LAYER_POST_PROCESSING: u8 = 4;
+
+    pub static MAGIC_LIGHT_2D_POST_PROCESSING: usize = 4;
+
+    pub fn floor_layer() -> Visibility {
+        Visibility::Visible
+    }
+
+    pub fn walls_layer() -> Visibility {
+        Visibility::Visible
+    }
+
+    pub fn objects_layer() -> Visibility {
+        Visibility::Visible
+    }
+
+    pub fn lights_layer() -> Visibility {
+        Visibility::Visible
+    }
+
+    pub fn all_layers() -> Visibility {
+        Visibility::Visible
+    }
+
+    pub fn post_processing_layer() -> Visibility {
+        Visibility::Visible
+    }
+}
+
