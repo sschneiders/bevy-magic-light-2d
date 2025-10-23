@@ -1,3 +1,4 @@
+
 [package]
 edition = "2021"
 name = "bevy_magic_light_2d"
@@ -9,21 +10,16 @@ authors = ["Vladimir Zaytsev"]
 license-file = "LICENSE"
 readme = "README.md"
 
-[features]
-default = ["egui"]
-egui = ["dep:bevy-inspector-egui"]
-
-
-
-
 [dependencies]
 bevy = { version = "0.17.*", default-features = true }
 bevy-inspector-egui = { version = "0.35.*", optional = true }
 log = "0.4.*"
 rand = "0.9.*"
 
-[dev-dependencies]
-bevy = "0.17.*"
+[features]
+default = ["egui", "bevy_post_process"]
+egui = ["dep:bevy-inspector-egui"]
+bevy_post_process = ["bevy/bevy_post_process"]
 
 [profile.release]
 codegen-units = 1

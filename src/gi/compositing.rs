@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-
 use bevy::reflect::TypePath;
 use bevy::mesh::MeshVertexBufferLayoutRef;
+use bevy::shader::ShaderRef;
 use bevy::render::render_resource::{
     AsBindGroup,
     Extent3d,
@@ -12,20 +12,14 @@ use bevy::render::render_resource::{
     TextureFormat,
     TextureUsages,
 };
-use bevy::prelude::*;
-use bevy::asset::Handle;
+use bevy::camera::visibility::RenderLayers;
+use bevy::sprite_render::Material2d;
+use bevy::sprite_render::Material2dKey;
+use bevy::post_process::bloom::Bloom;
 
-
-
-
-
-
-
-use crate::gi::constants::POST_PROCESSING_MATERIAL;
 use crate::gi::pipeline::GiTargetsWrapper;
-
+use crate::gi::render_layer::CAMERA_LAYER_POST_PROCESSING;
 use crate::gi::resource::ComputedTargetSizes;
-
 
 #[derive(Component)]
 pub struct PostProcessingQuad;
@@ -138,13 +132,9 @@ impl CameraTargets
         walls_image.resize(target_size);
         objects_image.resize(target_size);
 
-        let floor_image_handle: Handle<Image> = images.reserve_handle();
-        let walls_image_handle: Handle<Image> = images.reserve_handle();
-        let objects_image_handle: Handle<Image> = images.reserve_handle();
-
-        images.insert(floor_image_handle.id(), floor_image);
-        images.insert(walls_image_handle.id(), walls_image);
-        images.insert(objects_image_handle.id(), objects_image);
+        let floor_image_handle = images.add(floor_image);
+        let walls_image_handle = images.add(walls_image);
+        let objects_image_handle = images.add(objects_image);
 
         Self {
             floor_target:   floor_image_handle,
@@ -158,7 +148,23 @@ impl Material2d for PostProcessingMaterial
 {
     fn fragment_shader() -> ShaderRef
     {
-        ShaderRef::Path("embedded://bevy_magic_light_2d/gi/shaders/gi_post_processing.wgsl".into())
+        "embedded://bevy_magic_light_2d/gi/shaders/gi_post_processing.wgsl".into()
+    }
+
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        _key: Material2dKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError>
+    {
+        let shader_defs = &mut descriptor
+            .fragment
+            .as_mut()
+            .expect("Fragment shader empty")
+            .shader_defs;
+        shader_defs.push("MAX_DIRECTIONAL_LIGHTS".into());
+        shader_defs.push("MAX_CASCADES_PER_LIGHT".into());
+        Ok(())
     }
 }
 
@@ -179,42 +185,40 @@ pub fn setup_post_processing_camera(
         target_sizes.primary_target_size.y,
     ));
 
-    meshes.insert(POST_PROCESSING_RECT.id(), quad);
+    // We don't need to manually insert meshes anymore in Bevy 0.17
+    let _post_processing_mesh = meshes.add(quad);
 
     *camera_targets = CameraTargets::create(&mut images, &target_sizes);
 
     let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
-    materials.insert(POST_PROCESSING_MATERIAL.id(), material);
+    let quad_mesh = meshes.add(Rectangle::new(2.0, 2.0));
+    let material_handle = materials.add(material);
 
-    // Let layer be unused for now since we're switching to standard materials
-    let _layer = 4u8;
+    // This specifies the layer used for the post processing camera, which
+    // will be attached to the post processing camera and 2d quad.
+    let layer = RenderLayers::layer(CAMERA_LAYER_POST_PROCESSING.into());
 
     commands.spawn((
         PostProcessingQuad,
-        Mesh2d(POST_PROCESSING_RECT.clone()),
-        MeshMaterial2d(materials.add(PostProcessingMaterial {
-            ambient_strength: 0.05,
-            diffuse_strength: 1.0,
-            specular_strength: 0.5,
-            shininess: 32.0,
-            occlusion_texture: computed_sizes.occlusion_target.clone(),
-            gi_lighting_texture: computed_sizes.gi_lighting_target.clone(),
-            gi_ambient_light_texture: computed_sizes.gi_ambient_light_target.clone(),
-            scene_texture: computed_sizes.scene_target.clone(),
-            scene_depth_texture: computed_sizes.scene_depth_target.clone(),
-        })),
+        Mesh2d(quad_mesh),
+        MeshMaterial2d(material_handle),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
-        Visibility::Visible,
+        layer.clone(),
     ));
 
     commands.spawn((
         Name::new("post_processing_camera"),
         Camera2d, 
+
         Camera{
             order: 1,
-    
             ..default()
         },
-        Visibility::Visible,
+        #[cfg(feature = "bevy_post_process")]
+        Bloom {
+            intensity: 0.1,
+            ..default()
+        },
+        layer
     ));
 }
