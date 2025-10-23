@@ -187,6 +187,13 @@ pub fn system_queue_bind_groups(
     render_device: Res<RenderDevice>,
 )
 {
+    // Debug: Check if targets are initialized
+    if targets_wrapper.targets.is_none() {
+        log::warn!("GI targets not initialized - skipping bind group creation");
+        return;
+    }
+
+    // Check buffer binding availability
     if let (
         Some(light_sources),
         Some(light_occluders),
@@ -396,6 +403,9 @@ pub fn system_queue_bind_groups(
             ss_blend_bind_group,
             ss_filter_bind_group,
         });
+    } else {
+        // Some buffers aren't bound yet - this is normal during initialization
+        log::warn!("Some GPU buffers are not bound - skipping bind group creation");
     }
 }
 

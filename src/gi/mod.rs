@@ -9,7 +9,7 @@ use bevy::render::{Render, RenderApp, RenderSystems};
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
-use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial, PostProcessingQuad};
+use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::{
     system_queue_bind_groups,
@@ -146,7 +146,7 @@ pub fn handle_window_resize(
             return;
         }
         
-        assets_mesh.insert(
+        let _ = assets_mesh.insert(
             POST_PROCESSING_RECT.id(),
             Mesh::from(bevy::math::primitives::Rectangle::new(
                 res_target_sizes.primary_target_size.x,
@@ -154,7 +154,7 @@ pub fn handle_window_resize(
             )),
         );
 
-        assets_material.insert(
+        let _ = assets_material.insert(
             POST_PROCESSING_MATERIAL.id(),
             PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
         );
