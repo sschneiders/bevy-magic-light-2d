@@ -1,3 +1,4 @@
+use bevy::camera::RenderTarget;
 use bevy::color::palettes;
 use bevy::image::{ImageFilterMode, ImageSamplerDescriptor};
 use bevy::input::mouse::MouseWheel;
@@ -20,12 +21,6 @@ pub const SCREEN_SIZE: (u32, u32) = (1280, 720);
 pub const CAMERA_SCALE: f32 = 1.0;
 pub const CAMERA_SCALE_BOUNDS: (f32, f32) = (1., 20.);
 pub const CAMERA_ZOOM_SPEED: f32 = 3.;
-
-// Render layers for different camera views
-pub const CAMERA_LAYER_FLOOR: usize = 0;
-pub const CAMERA_LAYER_WALLS: usize = 1;
-pub const CAMERA_LAYER_OBJECTS: usize = 2;
-pub const ALL_LAYERS: usize = (1 << CAMERA_LAYER_FLOOR) | (1 << CAMERA_LAYER_WALLS) | (1 << CAMERA_LAYER_OBJECTS);
 
 // Misc components.
 #[derive(Component)]
@@ -92,7 +87,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    _camera_targets: Res<CameraTargets>,
+    camera_targets: Res<CameraTargets>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 )
@@ -829,6 +824,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
+                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -841,6 +837,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
+                target: RenderTarget::Image(camera_targets.walls_target.clone().into()),
                 ..default()
             },
             projection.clone(),
@@ -853,6 +850,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
+                target: RenderTarget::Image(camera_targets.objects_target.clone().into()),
                 ..default()
             },
             projection,
