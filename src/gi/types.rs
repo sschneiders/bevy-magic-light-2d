@@ -4,6 +4,7 @@ use bevy::camera::visibility::VisibilityClass;
 #[rustfmt::skip]
 #[derive(Reflect, Component, Clone, Copy, Default)]
 #[require(VisibilityClass)]
+#[component(on_add = bevy::camera::visibility::add_visibility_class::<OmniLightSource2D>)]
 #[reflect(Component)]
 pub struct OmniLightSource2D {
     pub intensity:          f32,
@@ -16,6 +17,7 @@ pub struct OmniLightSource2D {
 #[rustfmt::skip]
 #[derive(Reflect, Component, Default, Clone, Copy)]
 #[require(VisibilityClass)]
+#[component(on_add = bevy::camera::visibility::add_visibility_class::<LightOccluder2D>)]
 #[reflect(Component)]
 pub struct LightOccluder2D {
     pub h_size: Vec2,

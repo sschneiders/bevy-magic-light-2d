@@ -1,3 +1,4 @@
+use bevy::camera::RenderTarget;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_magic_light_2d::prelude::*;
@@ -26,7 +27,7 @@ fn main()
         .run();
 }
 
-fn setup(mut commands: Commands, _camera_targets: Res<CameraTargets>)
+fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
 {
     let mut occluders = vec![];
     let occluder_entity = commands
@@ -110,6 +111,7 @@ fn setup(mut commands: Commands, _camera_targets: Res<CameraTargets>)
         .spawn((
             Camera2d,
             Camera {
+                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
                 ..Default::default()
             },
             Name::new("main_camera"),

@@ -9,7 +9,8 @@ use bevy::render::{Render, RenderApp, RenderSystems};
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
-use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
+use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial, PostProcessingQuad};
+use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::{
     system_queue_bind_groups,
     system_setup_gi_pipeline,
@@ -51,6 +52,7 @@ impl Plugin for BevyMagicLight2DPlugin
     {
         app.add_plugins((
             ExtractResourcePlugin::<GiTargetsWrapper>::default(),
+            Material2dPlugin::<PostProcessingMaterial>::default(),
         ))
         .init_resource::<CameraTargets>()
         .init_resource::<GiTargetsWrapper>()
@@ -105,11 +107,9 @@ impl Plugin for BevyMagicLight2DPlugin
     {
         let render_app = app.sub_app_mut(RenderApp);
         render_app
-            .add_plugins(Material2dPlugin::<PostProcessingMaterial>::default())
             .init_resource::<LightPassPipeline>()
             .init_resource::<LightPassPipelineAssets>()
             .init_resource::<ComputedTargetSizes>();
-
     }
 }
 
@@ -146,13 +146,16 @@ pub fn handle_window_resize(
             return;
         }
         
-        // In Bevy 0.17, assets are automatically managed, no need to manually insert
-        let _quad_mesh = assets_mesh.add(Mesh::from(bevy::math::primitives::Rectangle::new(
-            res_target_sizes.primary_target_size.x,
-            res_target_sizes.primary_target_size.y,
-        )));
+        assets_mesh.insert(
+            POST_PROCESSING_RECT.id(),
+            Mesh::from(bevy::math::primitives::Rectangle::new(
+                res_target_sizes.primary_target_size.x,
+                res_target_sizes.primary_target_size.y,
+            )),
+        );
 
-        let _material = assets_material.add(
+        assets_material.insert(
+            POST_PROCESSING_MATERIAL.id(),
             PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
         );
 

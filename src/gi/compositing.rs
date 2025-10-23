@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::mesh::MeshVertexBufferLayoutRef;
-use bevy::shader::ShaderRef;
+use bevy::shader::{ShaderDefVal, ShaderRef};
 use bevy::render::render_resource::{
     AsBindGroup,
     Extent3d,
@@ -13,10 +13,11 @@ use bevy::render::render_resource::{
     TextureUsages,
 };
 use bevy::camera::visibility::RenderLayers;
+use bevy::pbr::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
 use bevy::sprite_render::Material2d;
 use bevy::sprite_render::Material2dKey;
 use bevy::post_process::bloom::Bloom;
-
+use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::GiTargetsWrapper;
 use crate::gi::render_layer::CAMERA_LAYER_POST_PROCESSING;
 use crate::gi::resource::ComputedTargetSizes;
@@ -162,8 +163,14 @@ impl Material2d for PostProcessingMaterial
             .as_mut()
             .expect("Fragment shader empty")
             .shader_defs;
-        shader_defs.push("MAX_DIRECTIONAL_LIGHTS".into());
-        shader_defs.push("MAX_CASCADES_PER_LIGHT".into());
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as u32,
+        ));
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as u32,
+        ));
         Ok(())
     }
 }
@@ -185,40 +192,42 @@ pub fn setup_post_processing_camera(
         target_sizes.primary_target_size.y,
     ));
 
-    // We don't need to manually insert meshes anymore in Bevy 0.17
-    let _post_processing_mesh = meshes.add(quad);
+    let _ = meshes.insert(POST_PROCESSING_RECT.id(), quad);
 
     *camera_targets = CameraTargets::create(&mut images, &target_sizes);
 
     let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
-    let quad_mesh = meshes.add(Rectangle::new(2.0, 2.0));
-    let material_handle = materials.add(material);
+    let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), material);
 
     // This specifies the layer used for the post processing camera, which
     // will be attached to the post processing camera and 2d quad.
-    let layer = RenderLayers::layer(CAMERA_LAYER_POST_PROCESSING.into());
+    let layer = RenderLayers::layer(CAMERA_LAYER_POST_PROCESSING);
 
     commands.spawn((
         PostProcessingQuad,
-        Mesh2d(quad_mesh),
-        MeshMaterial2d(material_handle),
+        Mesh2d(POST_PROCESSING_RECT.clone()),
+        MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
         layer.clone(),
     ));
 
     commands.spawn((
         Name::new("post_processing_camera"),
-        Camera2d, 
-
+        Camera2d,
         Camera{
             order: 1,
             ..default()
         },
-        #[cfg(feature = "bevy_post_process")]
         Bloom {
             intensity: 0.1,
             ..default()
         },
         layer
+    ))
+    .insert((
+        PostProcessingQuad,
+        Mesh2d(POST_PROCESSING_RECT.clone()),
+        MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
     ));
 }
