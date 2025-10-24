@@ -46,6 +46,29 @@ cargo run --example krypta
 - SHIFT+LMC to place a light source.
 - RMC to change color of light source.
 
+## Recent Improvements
+
+### GPU Buffer Binding Robustness (Bevy 0.17.2)
+
+**Problem Solved**: Eliminated confusing startup warning messages:
+- `"Some GPU buffers are not bound - skipping bind group creation"`
+- `"Failed to get bind groups"`
+
+**Root Cause**: In Bevy's render pipeline, GPU resources may not be immediately available during the first few frames due to asynchronous resource loading. The original code would log warnings during normal startup, which was confusing for users.
+
+**Solution Implemented**:
+- ✅ **Comprehensive resource validation**: Added `are_buffers_ready()` function that validates all storage/uniform buffers and texture targets before proceeding
+- ✅ **Graceful startup handling**: Early returns when resources aren't ready (normal during initialization)
+- ✅ **Improved logging**: Changed from warning-level to debug-level logging to avoid console spam
+- ✅ **Safe resource access**: All unwrap() calls are now guarded by prior validation
+- ✅ **Render node robustness**: Enhanced `LightPass2DNode` to handle missing resources gracefully
+
+**Benefits**:
+- 🚫 No more warning spams during application startup
+- 🛡️ Robust error handling with specific debug messages  
+- ⚡ Faster initialization with fewer unnecessary warning checks
+- 🔧 Better developer experience with clear error information
+
 ## TODOs
 
 **Optimizations**
@@ -70,6 +93,7 @@ cargo run --example krypta
 **Address limitations**
 
 - [x] SDF for offscreen occluders.
+- [x] GPU buffer binding robustness for Bevy 0.17.2
 
 **Others**
 

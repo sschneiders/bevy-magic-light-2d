@@ -178,6 +178,86 @@ pub struct LightPassPipeline
     pub ss_filter_pipeline:          CachedComputePipelineId,
 }
 
+/// Check if all required GPU buffers are initialized and ready for binding
+/// 
+/// This function implements a robust validation pattern for Bevy 0.17.2 render resources
+/// to prevent race conditions during startup where GPU buffers may not be ready yet.
+/// 
+/// ## Background
+/// In Bevy's render pipeline, resources can be uninitialized for the first few frames
+/// due to asynchronous GPU resource loading. The original code would log warnings
+/// during normal startup, which was confusing for users.
+/// 
+/// ## Solution
+/// This function provides comprehensive validation:
+/// - Checks all storage/uniform buffers are bound
+/// - Validates all texture targets are loaded in GPU memory  
+/// - Returns specific error messages for debugging
+/// - Only proceeds when all resources are ready
+/// 
+/// This pattern ensures that render passes only execute when all required resources
+/// are available, eliminating startup warnings while maintaining robustness.
+fn are_buffers_ready(
+    gi_compute_assets: &LightPassPipelineAssets,
+    gpu_images: &RenderAssets<GpuImage>,
+    targets: &GiTargets,
+) -> Result<(), String> {
+    // Check buffer binding availability
+    let bindings = [
+        ("light_sources", gi_compute_assets.light_sources.binding()),
+        ("light_occluders", gi_compute_assets.light_occluders.binding()),
+        ("camera_params", gi_compute_assets.camera_params.binding()),
+        ("light_pass_params", gi_compute_assets.light_pass_params.binding()),
+        ("probes", gi_compute_assets.probes.binding()),
+        ("skylight_masks", gi_compute_assets.skylight_masks.binding()),
+    ];
+
+    // Check each buffer
+    for (name, binding) in bindings.iter() {
+        if binding.is_none() {
+            return Err(format!("GPU buffer '{}' not bound yet", name));
+        }
+    }
+
+    // Check texture targets are loaded in GPU
+    let required_targets = [
+        ("sdf_target", &targets.sdf_target),
+        ("ss_probe_target", &targets.ss_probe_target),
+        ("ss_bounce_target", &targets.ss_bounce_target),
+        ("ss_blend_target", &targets.ss_blend_target),
+        ("ss_filter_target", &targets.ss_filter_target),
+        ("ss_pose_target", &targets.ss_pose_target),
+    ];
+
+    for (name, target) in required_targets.iter() {
+        if gpu_images.get(*target).is_none() {
+            return Err(format!("Texture target '{}' not loaded in GPU", name));
+        }
+    }
+
+    Ok(())
+}
+
+/// Queue bind groups for the GI pipeline compute passes
+/// 
+/// This function is responsible for creating GPU bind groups that connect
+/// uniform/storage buffers and textures to the compute shaders.
+/// 
+/// ## What this does:
+/// 1. Validates all GPU resources are ready before proceeding
+/// 2. Creates bind groups for SDF, Probe, Bounce, Blend, and Filter passes
+/// 3. Inserts the bind groups as a resource for compute shader execution
+/// 
+/// ## Key improvements for Bevy 0.17.2:
+/// - **Graceful startup**: No more warnings during normal initialization
+/// - **Robust validation**: Comprehensive resource checking before bind group creation
+/// - **Debug logging**: Detailed error messages only at debug level
+/// - **Safe unwrapping**: All resources validated before use
+/// 
+/// ## Error handling:
+/// - Early returns when resources aren't ready (normal during startup)
+/// - Debug-level logging instead of warnings
+/// - No panic scenarios from uninitialized resources
 pub fn system_queue_bind_groups(
     mut commands: Commands,
     pipeline: Res<LightPassPipeline>,
@@ -187,226 +267,213 @@ pub fn system_queue_bind_groups(
     render_device: Res<RenderDevice>,
 )
 {
-    // Debug: Check if targets are initialized
-    if targets_wrapper.targets.is_none() {
-        log::warn!("GI targets not initialized - skipping bind group creation");
+    // Check if targets are initialized
+    let targets = match targets_wrapper.targets.as_ref() {
+        Some(targets) => targets,
+        None => {
+            // This is normal during the first few frames
+            return;
+        }
+    };
+
+    // Validate all buffers and textures are ready before proceeding
+    // This prevents the startup warnings that were confusing users
+    if let Err(error) = are_buffers_ready(&gi_compute_assets, &gpu_images, targets) {
+        // Don't log warnings during normal startup - this is expected behavior
+        // Only log at debug level to avoid spamming the console
+        log::debug!("GI pipeline resources not ready: {}", error);
         return;
     }
 
-    // Check buffer binding availability
-    if let (
-        Some(light_sources),
-        Some(light_occluders),
-        Some(camera_params),
-        Some(gi_state),
-        Some(probes),
-        Some(skylight_masks),
-    ) = (
-        gi_compute_assets.light_sources.binding(),
-        gi_compute_assets.light_occluders.binding(),
-        gi_compute_assets.camera_params.binding(),
-        gi_compute_assets.light_pass_params.binding(),
-        gi_compute_assets.probes.binding(),
-        gi_compute_assets.skylight_masks.binding(),
-    ) {
-        let targets = targets_wrapper
-            .targets
-            .as_ref()
-            .expect("Targets should be initialized");
+    // Unwrap all bindings now that we know they're ready
+    // This is safe because are_buffers_ready() validated everything
+    let light_sources = gi_compute_assets.light_sources.binding().unwrap();
+    let light_occluders = gi_compute_assets.light_occluders.binding().unwrap();
+    let camera_params = gi_compute_assets.camera_params.binding().unwrap();
+    let gi_state = gi_compute_assets.light_pass_params.binding().unwrap();
+    let probes = gi_compute_assets.probes.binding().unwrap();
+    let skylight_masks = gi_compute_assets.skylight_masks.binding().unwrap();
 
-        let sdf_view_image = gpu_images
-            .get(&targets.sdf_target)
-            .expect("SDF target not found");
-        let ss_probe_image = gpu_images
-            .get(&targets.ss_probe_target)
-            .expect("SS Probe target not found");
-        let ss_bounce_image = gpu_images
-            .get(&targets.ss_bounce_target)
-            .expect("SS Bounce target not found");
-        let ss_blend_image = gpu_images
-            .get(&targets.ss_blend_target)
-            .expect("SS Blend target not found");
-        let ss_filter_image = gpu_images
-            .get(&targets.ss_filter_target)
-            .expect("SS Filter target not found");
-        let ss_pose_image = gpu_images
-            .get(&targets.ss_pose_target)
-            .expect("SS Pose target not found");
+    // Get all texture views - safe to unwrap after validation
+    // These are required for the compute shader texture bindings
+    let sdf_view_image = gpu_images.get(&targets.sdf_target).unwrap();
+    let ss_probe_image = gpu_images.get(&targets.ss_probe_target).unwrap();
+    let ss_bounce_image = gpu_images.get(&targets.ss_bounce_target).unwrap();
+    let ss_blend_image = gpu_images.get(&targets.ss_blend_target).unwrap();
+    let ss_filter_image = gpu_images.get(&targets.ss_filter_target).unwrap();
+    let ss_pose_image = gpu_images.get(&targets.ss_pose_target).unwrap();
 
-        let sdf_bind_group = render_device.create_bind_group(
-            "gi_sdf_bind_group",
-            &pipeline.sdf_bind_group_layout,
-            &[
-                BindGroupEntry {
-                    binding:  0,
-                    resource: camera_params.clone(),
-                },
-                BindGroupEntry {
-                    binding:  1,
-                    resource: light_occluders.clone(),
-                },
-                BindGroupEntry {
-                    binding:  2,
-                    resource: BindingResource::TextureView(&sdf_view_image.texture_view),
-                },
-            ],
-        );
+    // Create all bind groups
+    let sdf_bind_group = render_device.create_bind_group(
+        "gi_sdf_bind_group",
+        &pipeline.sdf_bind_group_layout,
+        &[
+            BindGroupEntry {
+                binding:  0,
+                resource: camera_params.clone(),
+            },
+            BindGroupEntry {
+                binding:  1,
+                resource: light_occluders.clone(),
+            },
+            BindGroupEntry {
+                binding:  2,
+                resource: BindingResource::TextureView(&sdf_view_image.texture_view),
+            },
+        ],
+    );
 
-        let ss_probe_bind_group = render_device.create_bind_group(
-            "gi_ss_probe_bind_group",
-            &pipeline.ss_probe_bind_group_layout,
-            &[
-                BindGroupEntry {
-                    binding:  0,
-                    resource: camera_params.clone(),
-                },
-                BindGroupEntry {
-                    binding:  1,
-                    resource: gi_state.clone(),
-                },
-                BindGroupEntry {
-                    binding:  2,
-                    resource: probes.clone(),
-                },
-                BindGroupEntry {
-                    binding:  3,
-                    resource: skylight_masks.clone(),
-                },
-                BindGroupEntry {
-                    binding:  4,
-                    resource: light_sources.clone(),
-                },
-                BindGroupEntry {
-                    binding:  5,
-                    resource: BindingResource::TextureView(&sdf_view_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  6,
-                    resource: BindingResource::Sampler(&sdf_view_image.sampler),
-                },
-                BindGroupEntry {
-                    binding:  7,
-                    resource: BindingResource::TextureView(&ss_probe_image.texture_view),
-                },
-            ],
-        );
+    let ss_probe_bind_group = render_device.create_bind_group(
+        "gi_ss_probe_bind_group",
+        &pipeline.ss_probe_bind_group_layout,
+        &[
+            BindGroupEntry {
+                binding:  0,
+                resource: camera_params.clone(),
+            },
+            BindGroupEntry {
+                binding:  1,
+                resource: gi_state.clone(),
+            },
+            BindGroupEntry {
+                binding:  2,
+                resource: probes.clone(),
+            },
+            BindGroupEntry {
+                binding:  3,
+                resource: skylight_masks.clone(),
+            },
+            BindGroupEntry {
+                binding:  4,
+                resource: light_sources.clone(),
+            },
+            BindGroupEntry {
+                binding:  5,
+                resource: BindingResource::TextureView(&sdf_view_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  6,
+                resource: BindingResource::Sampler(&sdf_view_image.sampler),
+            },
+            BindGroupEntry {
+                binding:  7,
+                resource: BindingResource::TextureView(&ss_probe_image.texture_view),
+            },
+        ],
+    );
 
-        let ss_bounce_bind_group = render_device.create_bind_group(
-            "gi_bounce_bind_group",
-            &pipeline.ss_bounce_bind_group_layout,
-            &[
-                BindGroupEntry {
-                    binding:  0,
-                    resource: camera_params.clone(),
-                },
-                BindGroupEntry {
-                    binding:  1,
-                    resource: gi_state.clone(),
-                },
-                BindGroupEntry {
-                    binding:  2,
-                    resource: BindingResource::TextureView(&sdf_view_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  3,
-                    resource: BindingResource::Sampler(&sdf_view_image.sampler),
-                },
-                BindGroupEntry {
-                    binding:  4,
-                    resource: BindingResource::TextureView(&ss_probe_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  5,
-                    resource: BindingResource::TextureView(&ss_bounce_image.texture_view),
-                },
-            ],
-        );
+    let ss_bounce_bind_group = render_device.create_bind_group(
+        "gi_bounce_bind_group",
+        &pipeline.ss_bounce_bind_group_layout,
+        &[
+            BindGroupEntry {
+                binding:  0,
+                resource: camera_params.clone(),
+            },
+            BindGroupEntry {
+                binding:  1,
+                resource: gi_state.clone(),
+            },
+            BindGroupEntry {
+                binding:  2,
+                resource: BindingResource::TextureView(&sdf_view_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  3,
+                resource: BindingResource::Sampler(&sdf_view_image.sampler),
+            },
+            BindGroupEntry {
+                binding:  4,
+                resource: BindingResource::TextureView(&ss_probe_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  5,
+                resource: BindingResource::TextureView(&ss_bounce_image.texture_view),
+            },
+        ],
+    );
 
-        let ss_blend_bind_group = render_device.create_bind_group(
-            "gi_blend_bind_group",
-            &pipeline.ss_blend_bind_group_layout,
-            &[
-                BindGroupEntry {
-                    binding:  0,
-                    resource: camera_params.clone(),
-                },
-                BindGroupEntry {
-                    binding:  1,
-                    resource: gi_state.clone(),
-                },
-                BindGroupEntry {
-                    binding:  2,
-                    resource: probes.clone(),
-                },
-                BindGroupEntry {
-                    binding:  3,
-                    resource: BindingResource::TextureView(&sdf_view_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  4,
-                    resource: BindingResource::Sampler(&sdf_view_image.sampler),
-                },
-                BindGroupEntry {
-                    binding:  5,
-                    resource: BindingResource::TextureView(&ss_bounce_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  6,
-                    resource: BindingResource::TextureView(&ss_blend_image.texture_view),
-                },
-            ],
-        );
+    let ss_blend_bind_group = render_device.create_bind_group(
+        "gi_blend_bind_group",
+        &pipeline.ss_blend_bind_group_layout,
+        &[
+            BindGroupEntry {
+                binding:  0,
+                resource: camera_params.clone(),
+            },
+            BindGroupEntry {
+                binding:  1,
+                resource: gi_state.clone(),
+            },
+            BindGroupEntry {
+                binding:  2,
+                resource: probes.clone(),
+            },
+            BindGroupEntry {
+                binding:  3,
+                resource: BindingResource::TextureView(&sdf_view_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  4,
+                resource: BindingResource::Sampler(&sdf_view_image.sampler),
+            },
+            BindGroupEntry {
+                binding:  5,
+                resource: BindingResource::TextureView(&ss_bounce_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  6,
+                resource: BindingResource::TextureView(&ss_blend_image.texture_view),
+            },
+        ],
+    );
 
-        let ss_filter_bind_group = render_device.create_bind_group(
-            "ss_filter_bind_group",
-            &pipeline.ss_filter_bind_group_layout,
-            &[
-                BindGroupEntry {
-                    binding:  0,
-                    resource: camera_params.clone(),
-                },
-                BindGroupEntry {
-                    binding:  1,
-                    resource: gi_state.clone(),
-                },
-                BindGroupEntry {
-                    binding:  2,
-                    resource: probes.clone(),
-                },
-                BindGroupEntry {
-                    binding:  3,
-                    resource: BindingResource::TextureView(&sdf_view_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  4,
-                    resource: BindingResource::Sampler(&sdf_view_image.sampler),
-                },
-                BindGroupEntry {
-                    binding:  5,
-                    resource: BindingResource::TextureView(&ss_blend_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  6,
-                    resource: BindingResource::TextureView(&ss_filter_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding:  7,
-                    resource: BindingResource::TextureView(&ss_pose_image.texture_view),
-                },
-            ],
-        );
+    let ss_filter_bind_group = render_device.create_bind_group(
+        "ss_filter_bind_group",
+        &pipeline.ss_filter_bind_group_layout,
+        &[
+            BindGroupEntry {
+                binding:  0,
+                resource: camera_params.clone(),
+            },
+            BindGroupEntry {
+                binding:  1,
+                resource: gi_state.clone(),
+            },
+            BindGroupEntry {
+                binding:  2,
+                resource: probes.clone(),
+            },
+            BindGroupEntry {
+                binding:  3,
+                resource: BindingResource::TextureView(&sdf_view_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  4,
+                resource: BindingResource::Sampler(&sdf_view_image.sampler),
+            },
+            BindGroupEntry {
+                binding:  5,
+                resource: BindingResource::TextureView(&ss_blend_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  6,
+                resource: BindingResource::TextureView(&ss_filter_image.texture_view),
+            },
+            BindGroupEntry {
+                binding:  7,
+                resource: BindingResource::TextureView(&ss_pose_image.texture_view),
+            },
+        ],
+    );
 
-        commands.insert_resource(LightPassPipelineBindGroups {
-            sdf_bind_group,
-            ss_probe_bind_group,
-            ss_bounce_bind_group,
-            ss_blend_bind_group,
-            ss_filter_bind_group,
-        });
-    } else {
-        // Some buffers aren't bound yet - this is normal during initialization
-        log::warn!("Some GPU buffers are not bound - skipping bind group creation");
-    }
+    commands.insert_resource(LightPassPipelineBindGroups {
+        sdf_bind_group,
+        ss_probe_bind_group,
+        ss_bounce_bind_group,
+        ss_blend_bind_group,
+        ss_filter_bind_group,
+    });
 }
 
 impl FromWorld for LightPassPipeline
