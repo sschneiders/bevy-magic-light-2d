@@ -5,7 +5,6 @@ use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderContext;
 use bevy::render::{Render, RenderApp, RenderSystems};
-
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;

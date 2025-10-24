@@ -1,5 +1,5 @@
 use std::f64::consts::PI;
-
+use bevy::camera::RenderTarget;
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::*;
@@ -45,7 +45,7 @@ fn main()
         .run();
 }
 
-fn setup(mut commands: Commands, _camera_targets: Res<CameraTargets>)
+fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
 {
     let mut occluders = vec![];
     let occluder_entity = commands
@@ -117,6 +117,7 @@ fn setup(mut commands: Commands, _camera_targets: Res<CameraTargets>)
     commands.spawn((
         Camera2d,
         Camera {
+            target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
             ..Default::default()
         },
         Name::new("main_camera"),
