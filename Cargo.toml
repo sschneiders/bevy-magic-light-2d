@@ -10,7 +10,7 @@ license-file = "LICENSE"
 readme = "README.md"
 
 [dependencies]
-bevy = { version = "0.17.*", default-features = false, features = [
+bevy = { version = "0.17.*", default-features = true, features = [
     "bevy_render",
     "bevy_core_pipeline",
     "bevy_winit",
@@ -18,9 +18,11 @@ bevy = { version = "0.17.*", default-features = false, features = [
     "bevy_sprite",
     "bevy_sprite_render",
     "bevy_pbr",
+    "default_font",
     "embedded_watcher",
     "multi_threaded",
-    "bevy_post_process"
+    "bevy_post_process",
+    "bevy_text"
 ]}
 bevy-inspector-egui = { version = "0.35.*", optional = true }
 log = "0.4.*"
