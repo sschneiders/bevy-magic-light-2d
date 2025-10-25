@@ -8,7 +8,7 @@ use bevy::render::{Render, RenderApp, RenderSystems};
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
-use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
+use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial, refresh_post_processing_material_on_gi_ready};
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::{
     system_queue_bind_groups,
@@ -68,7 +68,8 @@ impl Plugin for BevyMagicLight2DPlugin
             )
                 .chain(),
         )
-        .add_systems(PreUpdate, handle_window_resize);
+        .add_systems(PreUpdate, handle_window_resize)
+        .add_systems(Update, refresh_post_processing_material_on_gi_ready);
 
         embedded_asset!(app, "shaders/gi_attenuation.wgsl");
         embedded_asset!(app, "shaders/gi_camera.wgsl");

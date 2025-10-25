@@ -49,16 +49,21 @@ impl PostProcessingMaterial
 {
     pub fn create(camera_targets: &CameraTargets, gi_targets_wrapper: &GiTargetsWrapper) -> Self
     {
+        // Safely get GI targets - they might not be initialized yet during startup
+        let irradiance_image = gi_targets_wrapper
+            .targets
+            .as_ref()
+            .map(|targets| targets.ss_filter_target.clone())
+            .unwrap_or_else(|| {
+                log::warn!("GI targets not yet available for post-processing material, using fallback");
+                camera_targets.floor_target.clone() // Fallback to floor texture
+            });
+
         Self {
             floor_image:      camera_targets.floor_target.clone(),
             walls_image:      camera_targets.walls_target.clone(),
             objects_image:    camera_targets.objects_target.clone(),
-            irradiance_image: gi_targets_wrapper
-                .targets
-                .as_ref()
-                .expect("Targets must be initialized")
-                .ss_filter_target
-                .clone(),
+            irradiance_image,
         }
     }
 }
@@ -230,4 +235,24 @@ pub fn setup_post_processing_camera(
         MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
     ));
+}
+
+// System to refresh post-processing material when GI targets become available
+pub fn refresh_post_processing_material_on_gi_ready(
+    gi_targets_wrapper: Res<GiTargetsWrapper>,
+    camera_targets: Res<CameraTargets>,
+    mut materials: ResMut<Assets<PostProcessingMaterial>>,
+) {
+    // Only run if GI targets are now available but might not have been during setup
+    if gi_targets_wrapper.targets.is_some() {
+        // Check if current material is using fallback (by comparing irradiance texture)
+        if let Some(current_material) = materials.get(&POST_PROCESSING_MATERIAL) {
+            // If the irradiance image is the same as floor image, we're using fallback
+            if current_material.irradiance_image == camera_targets.floor_target {
+                log::info!("GI targets now available - refreshing post-processing material");
+                let updated_material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
+                let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), updated_material);
+            }
+        }
+    }
 }
