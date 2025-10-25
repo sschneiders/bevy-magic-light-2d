@@ -231,6 +231,7 @@ pub fn setup_post_processing_camera(
         Camera2d,
         Camera{
             order: 1,
+            clear_color: ClearColorConfig::Custom(Color::srgb(0.0, 0.0, 0.0)),
             ..default()
         },
         Bloom {
