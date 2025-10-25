@@ -226,6 +226,7 @@ pub fn setup_post_processing_camera(
         layer.clone(),
     ));
 
+    // Spawn the post-processing camera separately
     commands.spawn((
         Name::new("post_processing_camera"),
         Camera2d,
@@ -238,13 +239,17 @@ pub fn setup_post_processing_camera(
             intensity: 0.1,
             ..default()
         },
-        layer
-    ))
-    .insert((
+        layer.clone()
+    ));
+
+    // Spawn the post-processing quad as a separate entity
+    commands.spawn((
+        Name::new("post_processing_quad"),
         PostProcessingQuad,
         Mesh2d(POST_PROCESSING_RECT.clone()),
         MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
+        layer
     ));
 }
 
