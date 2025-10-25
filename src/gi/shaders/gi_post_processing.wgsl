@@ -34,6 +34,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let in_walls_diffuse   = textureSample(in_walls_texture,   in_walls_sampler, uv);
     let in_objects_diffuse = textureSample(in_objects_texture, in_objects_sampler, uv);
 
+    // DEBUG: Just return floor texture to see if texture sampling works
+    return in_floor_diffuse;
+
     let in_irradiance = textureSample(in_irradiance_texture, in_irradiance_texture_sampler, uv).xyz;
 
     // Calculate object irradiance.
