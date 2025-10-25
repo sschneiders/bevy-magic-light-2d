@@ -268,6 +268,7 @@ impl render_graph::Node for LightPass2DNode
         {
             let grid_w = target_sizes.probe_grid_usize.x / WORKGROUP_SIZE;
             let grid_h = target_sizes.probe_grid_usize.y / WORKGROUP_SIZE;
+            log::info!("LightPass2DNode: Dispatching probe pass with workgroup size {}x{}", grid_w, grid_h);
             pass.set_bind_group(0, &pipeline_bind_groups.ss_probe_bind_group, &[]);
             pass.set_pipeline(ss_probe_pipeline);
             pass.dispatch_workgroups(grid_w, grid_h, 1);
@@ -277,6 +278,7 @@ impl render_graph::Node for LightPass2DNode
         {
             let grid_w = target_sizes.probe_grid_usize.x / WORKGROUP_SIZE;
             let grid_h = target_sizes.probe_grid_usize.y / WORKGROUP_SIZE;
+            log::info!("LightPass2DNode: Dispatching bounce pass with workgroup size {}x{}", grid_w, grid_h);
             pass.set_bind_group(0, &pipeline_bind_groups.ss_bounce_bind_group, &[]);
             pass.set_pipeline(ss_bounce_pipeline);
             pass.dispatch_workgroups(grid_w, grid_h, 1);
@@ -286,6 +288,7 @@ impl render_graph::Node for LightPass2DNode
         {
             let grid_w = target_sizes.probe_grid_usize.x / WORKGROUP_SIZE;
             let grid_h = target_sizes.probe_grid_usize.y / WORKGROUP_SIZE;
+            log::info!("LightPass2DNode: Dispatching blend pass with workgroup size {}x{}", grid_w, grid_h);
             pass.set_bind_group(0, &pipeline_bind_groups.ss_blend_bind_group, &[]);
             pass.set_pipeline(ss_blend_pipeline);
             pass.dispatch_workgroups(grid_w, grid_h, 1);
@@ -296,6 +299,7 @@ impl render_graph::Node for LightPass2DNode
             let aligned = util::align_to_work_group_grid(target_sizes.primary_target_isize).as_uvec2();
             let grid_w = aligned.x / WORKGROUP_SIZE;
             let grid_h = aligned.y / WORKGROUP_SIZE;
+            log::info!("LightPass2DNode: Dispatching filter pass with workgroup size {}x{}", grid_w, grid_h);
             pass.set_bind_group(0, &pipeline_bind_groups.ss_filter_bind_group, &[]);
             pass.set_pipeline(ss_filter_pipeline);
             pass.dispatch_workgroups(grid_w, grid_h, 1);
