@@ -279,9 +279,8 @@ pub fn system_queue_bind_groups(
     // Validate all buffers and textures are ready before proceeding
     // This prevents the startup warnings that were confusing users
     if let Err(error) = are_buffers_ready(&gi_compute_assets, &gpu_images, targets) {
-        // Don't log warnings during normal startup - this is expected behavior
-        // Only log at debug level to avoid spamming the console
-        log::debug!("GI pipeline resources not ready: {}", error);
+        // Log at info level for now to debug the black screen issue
+        log::info!("GI pipeline resources not ready: {}", error);
         return;
     }
 
@@ -467,6 +466,7 @@ pub fn system_queue_bind_groups(
         ],
     );
 
+    log::info!("Successfully created all GI pipeline bind groups");
     commands.insert_resource(LightPassPipelineBindGroups {
         sdf_bind_group,
         ss_probe_bind_group,

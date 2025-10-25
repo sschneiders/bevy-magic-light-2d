@@ -203,9 +203,13 @@ impl render_graph::Node for LightPass2DNode
     ) -> Result<(), render_graph::NodeRunError> {
         // Get required resources
         let pipeline_bind_groups = match world.get_resource::<LightPassPipelineBindGroups>() {
-            Some(bind_groups) => bind_groups,
+            Some(bind_groups) => {
+                log::info!("LightPass2DNode: Bind groups found successfully");
+                bind_groups
+            },
             None => {
                 // Bind groups not ready yet - this is normal during startup
+                log::info!("LightPass2DNode: No bind groups available");
                 return Ok(());
             }
         };
