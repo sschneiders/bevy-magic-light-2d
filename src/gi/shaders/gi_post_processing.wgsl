@@ -29,16 +29,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let position = in.position;
     let uv = coords_to_viewport_uv(position.xy, view.viewport);
 
-    // DEBUG: Return a bright color to verify shader is executing
-    return vec4<f32>(1.0, 0.5, 0.0, 1.0); // Orange color
-
-    // DEBUG: Output just the floor texture to verify texture pipeline works
-    let in_floor_diffuse   = textureSample(in_floor_texture,   in_floor_sampler, uv);
-    
-    // Simple debug output - just return the floor texture
-    return in_floor_diffuse;
-    
     // Read diffuse textures.
+    let in_floor_diffuse   = textureSample(in_floor_texture,   in_floor_sampler, uv);
     let in_walls_diffuse   = textureSample(in_walls_texture,   in_walls_sampler, uv);
     let in_objects_diffuse = textureSample(in_objects_texture, in_objects_sampler, uv);
 
