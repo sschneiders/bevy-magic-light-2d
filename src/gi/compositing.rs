@@ -226,21 +226,11 @@ pub fn setup_post_processing_camera(
         layer.clone(),
     ));
 
-    // Main camera that displays the final composited scene to the window
-    commands.spawn((
-        Name::new("main_display_camera"),
-        Camera2d,
-        Camera{
-            order: 0, // Render first to display to the window
-            ..default()
-        },
-    ));
-
     commands.spawn((
         Name::new("post_processing_camera"),
         Camera2d,
         Camera{
-            order: 1, // Render after main camera, but to separate target
+            order: 1, // Render last as the main display camera
             clear_color: ClearColorConfig::Custom(Color::srgb(0.0, 0.0, 0.0)),
             ..default()
         },
