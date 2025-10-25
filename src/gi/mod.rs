@@ -241,10 +241,12 @@ impl render_graph::Node for LightPass2DNode
         };
 
         let (sdf_pipeline, ss_probe_pipeline, ss_bounce_pipeline, ss_blend_pipeline, ss_filter_pipeline) = compute_pipelines;
+        log::info!("LightPass2DNode: Got compute pipelines from cache");
         
         let sdf_w = target_sizes.sdf_target_usize.x;
         let sdf_h = target_sizes.sdf_target_usize.y;
 
+        log::info!("LightPass2DNode: Beginning compute pass execution");
         let mut pass =
             render_context
                 .command_encoder()
@@ -254,6 +256,7 @@ impl render_graph::Node for LightPass2DNode
         {
             let grid_w = sdf_w / WORKGROUP_SIZE;
             let grid_h = sdf_h / WORKGROUP_SIZE;
+            log::info!("LightPass2DNode: Dispatching SDF pass with workgroup size {}x{}", grid_w, grid_h);
             pass.set_bind_group(0, &pipeline_bind_groups.sdf_bind_group, &[]);
             pass.set_pipeline(sdf_pipeline);
             pass.dispatch_workgroups(grid_w, grid_h, 1);
