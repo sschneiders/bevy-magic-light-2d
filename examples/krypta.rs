@@ -825,6 +825,8 @@ fn setup(
             Camera2d,
             Camera {
                 target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
+                order: 0, // Render before post-processing
+                clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),
                 ..default()
             },
             projection.clone(),
@@ -838,6 +840,8 @@ fn setup(
             Camera2d,
             Camera {
                 target: RenderTarget::Image(camera_targets.walls_target.clone().into()),
+                order: 0, // Render before post-processing
+                clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),
                 ..default()
             },
             projection.clone(),
@@ -851,6 +855,8 @@ fn setup(
             Camera2d,
             Camera {
                 target: RenderTarget::Image(camera_targets.objects_target.clone().into()),
+                order: 0, // Render before post-processing
+                clear_color: ClearColorConfig::Custom(Color::srgb(0.1, 0.1, 0.1)),
                 ..default()
             },
             projection,
