@@ -8,7 +8,7 @@ use bevy::render::{Render, RenderApp, RenderSystems};
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
-use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial, refresh_post_processing_material_on_gi_ready};
+use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial, PostProcessingMaterialState, refresh_post_processing_material_on_gi_ready};
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::{
     system_queue_bind_groups,
@@ -54,6 +54,7 @@ impl Plugin for BevyMagicLight2DPlugin
             Material2dPlugin::<PostProcessingMaterial>::default(),
         ))
         .init_resource::<CameraTargets>()
+        .init_resource::<PostProcessingMaterialState>()
         .init_resource::<GiTargetsWrapper>()
         .init_resource::<BevyMagicLight2DSettings>()
         .init_resource::<ComputedTargetSizes>()

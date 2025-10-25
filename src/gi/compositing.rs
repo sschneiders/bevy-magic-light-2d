@@ -62,7 +62,7 @@ impl PostProcessingMaterial
                 camera_targets.floor_target.clone() // Fallback to floor texture
             });
 
-        log::info!("PostProcessingMaterial created with irradiance texture: {:?}", irradiance_image);
+        
 
         Self {
             floor_image:      camera_targets.floor_target.clone(),
@@ -81,6 +81,11 @@ pub struct CameraTargets
     pub objects_target: Handle<Image>,
 }
 
+#[derive(Resource, Default)]
+pub struct PostProcessingMaterialState {
+    pub material_configured: bool,
+}
+
 impl CameraTargets
 {
     pub fn create(images: &mut Assets<Image>, sizes: &ComputedTargetSizes) -> Self
@@ -93,16 +98,16 @@ impl CameraTargets
 
         let mut floor_image = Image {
             texture_descriptor: TextureDescriptor {
-                label:           Some("target_floor"),
-                size:            target_size,
-                dimension:       TextureDimension::D2,
-                format:          TextureFormat::bevy_default(),
+                label: Some("target_floor"),
+                size: target_size,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::bevy_default(),
                 mip_level_count: 1,
-                sample_count:    1,
-                usage:           TextureUsages::TEXTURE_BINDING
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING
                     | TextureUsages::COPY_DST
                     | TextureUsages::RENDER_ATTACHMENT,
-                view_formats:    &[],
+                view_formats: &[],
             },
             ..default()
         };
@@ -247,31 +252,18 @@ pub fn refresh_post_processing_material_on_gi_ready(
     gi_targets_wrapper: Res<GiTargetsWrapper>,
     camera_targets: Res<CameraTargets>,
     mut materials: ResMut<Assets<PostProcessingMaterial>>,
+    mut material_state: ResMut<PostProcessingMaterialState>,
 ) {
-    // Check if GI targets are available
-    if let Some(gi_targets) = &gi_targets_wrapper.targets {
-        log::debug!("Checking if post-processing material needs refresh - GI targets available");
-        
-        // Check if current material is using fallback (by comparing irradiance texture)
-        if let Some(current_material) = materials.get(&POST_PROCESSING_MATERIAL) {
-            log::debug!("Current material irradiance: {:?}", current_material.irradiance_image);
-            log::debug!("Floor target: {:?}", camera_targets.floor_target);
-            log::debug!("GI ss_filter_target: {:?}", gi_targets.ss_filter_target);
+    // Only proceed if we haven't already configured the material
+    if !material_state.material_configured {
+        // Check if GI targets are available
+        if let Some(_gi_targets) = &gi_targets_wrapper.targets {
+            log::info!("GI targets now available - configuring post-processing material");
+            let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
+            let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), material);
             
-            // If the irradiance image is the same as floor image, we're using fallback
-            if current_material.irradiance_image == camera_targets.floor_target {
-                log::info!("GI targets now available with different texture - refreshing post-processing material");
-                let updated_material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
-                let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), updated_material);
-            } else if current_material.irradiance_image == gi_targets.ss_filter_target {
-                log::debug!("Post-processing material already has correct GI texture");
-            } else {
-                log::warn!("Post-processing material has unexpected irradiance texture");
-            }
-        } else {
-            log::warn!("Could not find current post-processing material");
+            // Mark as configured to avoid repeated refreshes
+            material_state.material_configured = true;
         }
-    } else {
-        log::debug!("GI targets not yet available for material refresh");
     }
 }
