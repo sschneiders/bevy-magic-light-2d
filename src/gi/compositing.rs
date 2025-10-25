@@ -14,8 +14,7 @@ use bevy::render::render_resource::{
 };
 use bevy::camera::visibility::RenderLayers;
 use bevy::pbr::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
-use bevy::sprite_render::Material2d;
-use bevy::sprite_render::Material2dKey;
+use bevy::sprite_render::{Material2d, Material2dKey};
 use bevy::post_process::bloom::Bloom;
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::GiTargetsWrapper;

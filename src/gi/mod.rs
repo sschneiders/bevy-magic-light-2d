@@ -4,7 +4,7 @@ use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderContext;
-use bevy::render::{Render, RenderApp, RenderSystems};
+use bevy::render::{Render, RenderApp, RenderSystems, RenderStartup};
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
@@ -86,6 +86,11 @@ impl Plugin for BevyMagicLight2DPlugin
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .add_systems(ExtractSchedule, system_extract_pipeline_assets)
+            .add_systems(RenderStartup, (
+                init_light_pass_pipeline,
+                init_light_pass_pipeline_assets,
+                init_computed_target_sizes,
+            ).chain())
             .add_systems(
                 Render,
                 (
@@ -100,15 +105,6 @@ impl Plugin for BevyMagicLight2DPlugin
             LightPass2DRenderLabel,
             bevy::render::graph::CameraDriverLabel,
         )
-    }
-
-    fn finish(&self, app: &mut App)
-    {
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<LightPassPipeline>()
-            .init_resource::<LightPassPipelineAssets>()
-            .init_resource::<ComputedTargetSizes>();
     }
 }
 
@@ -259,4 +255,17 @@ impl render_graph::Node for LightPass2DNode
 
         Ok(())
     }
+}
+
+// RenderStartup initialization functions for Bevy 0.17
+fn init_light_pass_pipeline(mut commands: Commands) {
+    commands.init_resource::<LightPassPipeline>();
+}
+
+fn init_light_pass_pipeline_assets(mut commands: Commands) {
+    commands.init_resource::<LightPassPipelineAssets>();
+}
+
+fn init_computed_target_sizes(mut commands: Commands) {
+    commands.init_resource::<ComputedTargetSizes>();
 }
