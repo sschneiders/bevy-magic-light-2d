@@ -28,36 +28,22 @@ wgpu 25 introduces breaking changes in bind group layout requirements:
 
 **After**:
 ```wgsl
-@group(MATERIAL_BIND_GROUP) @binding(0) var in_floor_texture:              texture_2d<f32>;
-@group(MATERIAL_BIND_GROUP) @binding(1) var in_floor_sampler:              sampler;
-// ... 8 total texture/sampler bindings using MATERIAL_BIND_GROUP
-```
-
-### 2. Material Specialization Update
-
-**File**: `src/gi/compositing.rs`
-
-Added `MATERIAL_BIND_GROUP` shader definition to the post-processing material specialization:
-
-```rust
-shader_defs.push(ShaderDefVal::UInt(
-    "MATERIAL_BIND_GROUP".to_string(),
-    3u32,
-));
+@group(3) @binding(0) var in_floor_texture:              texture_2d<f32>;
+@group(3) @binding(1) var in_floor_sampler:              sampler;
+// ... 8 total texture/sampler bindings using @group(3)
 ```
 
 ### 3. Why This Approach
 
-The post-processing shader is used by `PostProcessingMaterial` which implements `Material2d`. According to the new wgpu 25 layout, materials should use `@group(3)` (the material bind group). Using the `MATERIAL_BIND_GROUP` shader definition ensures:
+The post-processing shader is used by `PostProcessingMaterial` which implements `Material2d`. According to the new wgpu 25 layout, materials should use `@group(3)` (the material bind group). Directly using `@group(3)` ensures:
 
-1. **Future Compatibility**: If Bevy changes bind group numbering again, only the shader definition value needs to change
-2. **Clear Intent**: Makes it explicit that this shader uses the material bind group
-3. **Consistency**: Aligns with Bevy's recommended migration approach
+1. **Simplicity**: No dependency on shader definitions that may not be properly passed
+2. **Explicit Layout**: Clear which bind group this shader is using  
+3. **Immediate Compatibility**: Works immediately without additional configuration
 
 ## Migration Summary
 
-- ✅ Updated `gi_post_processing.wgsl` to use `@group(MATERIAL_BIND_GROUP)` instead of `@group(2)`
-- ✅ Added `MATERIAL_BIND_GROUP = 3` shader definition in material specialization
+- ✅ Updated `gi_post_processing.wgsl` to use `@group(3)` instead of `@group(2)`
 - ✅ Verified compilation with `cargo check`
 - ✅ No float constants needed explicit typing (all constants already had proper types)
 

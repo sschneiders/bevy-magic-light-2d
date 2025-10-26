@@ -170,10 +170,6 @@ impl Material2d for PostProcessingMaterial
             "MAX_CASCADES_PER_LIGHT".to_string(),
             MAX_CASCADES_PER_LIGHT as u32,
         ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MATERIAL_BIND_GROUP".to_string(),
-            3u32,
-        ));
         Ok(())
     }
 }
