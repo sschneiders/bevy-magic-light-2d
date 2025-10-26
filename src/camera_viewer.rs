@@ -168,10 +168,49 @@ pub fn camera_viewer_window_system(
                                     viewer_state.loaded_texture_ids.insert(selected_camera, texture_id);
                                     
                                     // Display the actual image using the correct texture ID
-                                    ui.image(egui::load::SizedTexture::new(
+                                    let response = ui.image(egui::load::SizedTexture::new(
                                         texture_id,
                                         image_size
                                     ));
+                                    
+                                    // Add visual feedback and grid overlay to help distinguish content
+                                    if response.hovered() {
+                                        let painter = ui.painter();
+                                        let rect = response.rect;
+                                        
+                                        // Draw semi-transparent grid to help see what's being displayed
+                                        let grid_color = egui::Color32::from_rgba_premultiplied(255, 255, 255, 30);
+                                        let stroke = egui::Stroke::new(1.0, grid_color);
+                                        
+                                        // Vertical lines
+                                        for i in 1..4 {
+                                            let x = rect.min.x + (rect.width() / 4.0 * i as f32);
+                                            painter.line_segment(
+                                                [egui::pos2(x, rect.min.y), egui::pos2(x, rect.max.y)],
+                                                stroke
+                                            );
+                                        }
+                                        
+                                        // Horizontal lines
+                                        for i in 1..3 {
+                                            let y = rect.min.y + (rect.height() / 3.0 * i as f32);
+                                            painter.line_segment(
+                                                [egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)],
+                                                stroke
+                                            );
+                                        }
+                                        
+                                        // Show center crosshair
+                                        let center = rect.center();
+                                        painter.line_segment(
+                                            [egui::pos2(center.x - 10.0, center.y), egui::pos2(center.x + 10.0, center.y)],
+                                            egui::Stroke::new(1.0, egui::Color32::RED)
+                                        );
+                                        painter.line_segment(
+                                            [egui::pos2(center.x, center.y - 10.0), egui::pos2(center.x, center.y + 10.0)],
+                                            egui::Stroke::new(1.0, egui::Color32::RED)
+                                        );
+                                    }
                                 }
                                 _ => {
                                     ui.label(format!("Unsupported format: {:?}", image.texture_descriptor.format));
