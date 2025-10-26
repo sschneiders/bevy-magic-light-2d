@@ -55,11 +55,15 @@ pub fn camera_viewer_window_system(
     }
 
     let ctx = contexts.ctx_mut();
-    let current_selected = viewer_state.selected_camera;
     
     if let Ok(ctx) = ctx {
+        // Copy current state to avoid borrow checker issues
+        let current_selection = viewer_state.selected_camera;
+        let mut window_open = viewer_state.window_open;
+        let mut selected_camera = current_selection;
+        
         egui::Window::new("Camera Viewer")
-            .open(&mut viewer_state.window_open)
+            .open(&mut window_open)
             .resizable(true)
             .default_height(400.0)
             .show(ctx, |ui| {
@@ -69,7 +73,6 @@ pub fn camera_viewer_window_system(
                 ui.label("Select Camera:");
                 
                 // Camera selection combo box
-                let mut selected_camera = current_selected;
                 egui::ComboBox::from_label("")
                     .selected_text(selected_camera.as_str())
                     .show_ui(ui, |ui| {
@@ -85,8 +88,8 @@ pub fn camera_viewer_window_system(
 
             ui.separator();
 
-            // Display the selected camera view using the cached selection
-            let target_handle: Option<Handle<Image>> = match current_selected {
+            // Display the selected camera view using the current selection
+            let target_handle: Option<Handle<Image>> = match selected_camera {
                 CameraType::Floor => Some(camera_targets.floor_target.clone()),
                 CameraType::Walls => Some(camera_targets.walls_target.clone()),
                 CameraType::Objects => Some(camera_targets.objects_target.clone()),
@@ -107,20 +110,38 @@ pub fn camera_viewer_window_system(
             };
 
             if let Some(_handle) = target_handle {
-                ui.heading(format!("{} View", current_selected.as_str()));
+                ui.heading(format!("{} View", selected_camera.as_str()));
                 
                 // Display the camera render target as an image
                 let available_size = ui.available_size();
                 let image_size = egui::Vec2::new(available_size.x.min(400.0), available_size.y.min(300.0));
                 
-                // Simple placeholder for now - we'll implement proper image display once compilation works
-                ui.label(format!("Camera view would be displayed here (size: {:.0}x{:.0})", image_size.x, image_size.y));
+                // Display the actual render target - for now showing a placeholder
+                // TODO: Implement proper texture display using bevy_egui texture loading
+                let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
+                ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(50, 50, 50));
+                ui.painter().text(
+                    rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    format!("{} Camera\nRender Target\n(FIXME: Display actual texture)", selected_camera.as_str()),
+                    egui::FontId::default(),
+                    egui::Color32::WHITE,
+                );
+                // Advance cursor by the size we used
+                ui.add_space(image_size.y);
+                
                 ui.separator();
-                ui.label("Render target available for this camera");
+                ui.label(format!("{} - Render target displayed", selected_camera.as_str()));
             } else {
                 ui.label("No render target available for selected camera");
             }
         });
+        
+        // Update the viewer state after window interactions
+        if selected_camera != current_selection {
+            viewer_state.selected_camera = selected_camera;
+        }
+        viewer_state.window_open = window_open;
     }
 
 }
