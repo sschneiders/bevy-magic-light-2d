@@ -19,7 +19,7 @@ impl Default for CameraViewerState {
     fn default() -> Self {
         Self {
             selected_camera: CameraType::Floor,
-            show_window: true,
+            show_window: false,
         }
     }
 }
@@ -81,14 +81,23 @@ fn camera_viewer_ui_system(
     images: Res<Assets<Image>>,
 ) {
     if !viewer_state.show_window {
-        // Show a toggle button in the main menu
+        // Show a more prominent toggle button 
         egui::Window::new("📷 Camera Viewer")
             .collapsible(false)
             .resizable(false)
+            .default_pos([10.0, 50.0])
             .show(egui_contexts.ctx_mut(), |ui| {
-                if ui.button("Open Camera Viewer").clicked() {
+                ui.heading("Camera Viewer");
+                ui.separator();
+                ui.label("Press 'V' or click the button below to open the camera viewer");
+                if ui.button("📷 Open Camera Viewer").clicked() {
                     viewer_state.show_window = true;
                 }
+                ui.separator();
+                ui.label("The camera viewer lets you see:");
+                ui.label("• Individual render targets (Floor, Walls, Objects)");
+                ui.label("• Combined post-processing result");
+                ui.label("• All layers side-by-side");
             });
         return;
     }
@@ -96,7 +105,8 @@ fn camera_viewer_ui_system(
     egui::Window::new("📷 Camera Viewer")
         .collapsible(true)
         .resizable(true)
-        .default_size([400.0, 600.0])
+        .default_size([450.0, 650.0])
+        .default_pos([50.0, 80.0])
         .show(egui_contexts.ctx_mut(), |ui| {
             ui.heading("Render Target Viewer");
             
