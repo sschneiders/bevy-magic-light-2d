@@ -14,7 +14,7 @@ impl Default for CameraViewerState {
     fn default() -> Self {
         Self {
             selected_camera: CameraType::Floor,
-            window_open: false,
+            window_open: true,
             loaded_texture_ids: std::collections::HashMap::new(),
         }
     }
