@@ -33,6 +33,7 @@ mod pipeline;
 mod pipeline_assets;
 mod types_gpu;
 
+pub mod camera_viewer;
 pub mod compositing;
 pub mod render_layer;
 pub mod resource;
