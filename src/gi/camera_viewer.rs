@@ -1,7 +1,8 @@
 
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
-use bevy_inspector_egui::bevy_egui::{egui, EguiContexts, egui::load::SizedTexture};
+use bevy_inspector_egui::bevy_egui::{egui, EguiContexts, EguiUserTextures};
+use log::info;
 
 use crate::gi::compositing::CameraTargets;
 use crate::gi::render_layer::{
@@ -70,8 +71,22 @@ pub struct CameraViewerPlugin;
 impl Plugin for CameraViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraViewerState>()
-            .add_systems(Update, camera_viewer_ui_system);
+            .add_systems(Update, camera_viewer_ui_system)
+            .add_systems(Startup, register_render_target_textures);
     }
+}
+
+fn register_render_target_textures(
+    camera_targets: Res<CameraTargets>,
+    mut egui_user_textures: ResMut<EguiUserTextures>,
+) {
+    info!("Registering render target textures with egui");
+    
+    egui_user_textures.add_image(camera_targets.floor_target.clone());
+    egui_user_textures.add_image(camera_targets.walls_target.clone());
+    egui_user_textures.add_image(camera_targets.objects_target.clone());
+    
+    info!("Render target textures registered");
 }
 
 fn camera_viewer_ui_system(
@@ -101,6 +116,11 @@ fn camera_viewer_ui_system(
             });
         return;
     }
+
+    // Check texture IDs before the window to avoid borrowing issues
+    let floor_texture_id = egui_contexts.image_id(&camera_targets.floor_target);
+    let walls_texture_id = egui_contexts.image_id(&camera_targets.walls_target);
+    let objects_texture_id = egui_contexts.image_id(&camera_targets.objects_target);
 
     egui::Window::new("📷 Camera Viewer")
         .collapsible(true)
@@ -140,9 +160,9 @@ fn camera_viewer_ui_system(
 
             // Display the selected camera's render target
             match viewer_state.selected_camera {
-                CameraType::Floor => display_render_target(ui, &camera_targets.floor_target, &images, "Floor Layer"),
-                CameraType::Walls => display_render_target(ui, &camera_targets.walls_target, &images, "Walls Layer"),
-                CameraType::Objects => display_render_target(ui, &camera_targets.objects_target, &images, "Objects Layer"),
+                CameraType::Floor => display_render_target(ui, &camera_targets.floor_target, &images, "Floor Layer", floor_texture_id),
+                CameraType::Walls => display_render_target(ui, &camera_targets.walls_target, &images, "Walls Layer", walls_texture_id),
+                CameraType::Objects => display_render_target(ui, &camera_targets.objects_target, &images, "Objects Layer", objects_texture_id),
                 CameraType::PostProcessing => {
                     ui.label("Post Processing View");
                     ui.label("(This is what you see in the main window)");
@@ -155,9 +175,9 @@ fn camera_viewer_ui_system(
                     
                     // Create a grid layout for all cameras
                     egui::Grid::new("camera_grid").num_columns(2).spacing([10.0, 10.0]).show(ui, |ui| {
-                        display_render_target_in_grid(ui, &camera_targets.floor_target, &images, "Floor");
-                        display_render_target_in_grid(ui, &camera_targets.walls_target, &images, "Walls");
-                        display_render_target_in_grid(ui, &camera_targets.objects_target, &images, "Objects");
+                        display_render_target_in_grid(ui, &camera_targets.floor_target, &images, "Floor", floor_texture_id);
+                        display_render_target_in_grid(ui, &camera_targets.walls_target, &images, "Walls", walls_texture_id);
+                        display_render_target_in_grid(ui, &camera_targets.objects_target, &images, "Objects", objects_texture_id);
                         ui.end_row();
                     });
                 },
@@ -186,6 +206,7 @@ fn display_render_target(
     target: &bevy::asset::Handle<Image>,
     images: &Assets<Image>,
     label: &str,
+    texture_id: Option<egui::TextureId>,
 ) {
     ui.label(label);
     
@@ -198,16 +219,37 @@ fn display_render_target(
         let display_height = available_size.y.min(400.0);
         let display_width = display_height * aspect_ratio;
         
-        // For now, show basic texture info with a simple visualization
-        match images.get(target) {
-            Some(image) => {
+        // Try to display the actual render target image using egui texture system
+        match texture_id {
+            Some(texture_id) => {
+                // Successfully got egui texture ID, display the actual image
+                ui.image(egui::load::SizedTexture::new(
+                    texture_id,
+                    egui::Vec2::new(display_width, display_height),
+                ));
+                
+                // Show some debug info
                 if let Some(data) = &image.data {
-                    // Show that we have texture data with a simple visualization
                     let data_size = data.len();
-                    let pixel_count = data_size / 4; // RGBA
-                    
-                    ui.label(format!("Texture data: {} pixels", pixel_count));
+                    let pixel_count = data_size / 4;
+                    ui.label(format!("✅ Render target: {} pixels", pixel_count));
                     ui.label(format!("Buffer size: {} bytes", data_size));
+                } else {
+                    ui.label("✅ Render target loaded (no CPU data access)");
+                }
+            },
+            None => {
+                // Fallback to visualization if texture not registered with egui
+                ui.label("⚠️ Texture not registered with egui");
+                
+                if let Some(image) = images.get(target) {
+                    if let Some(data) = &image.data {
+                        let data_size = data.len();
+                        let pixel_count = data_size / 4;
+                        ui.label(format!("Has data: {} pixels", pixel_count));
+                    } else {
+                        ui.label("Has handle but no CPU data");
+                    }
                     
                     // Simple colored rectangle to indicate this render target exists
                     let (rect, _) = ui.allocate_exact_size(
@@ -238,11 +280,8 @@ fn display_render_target(
                         egui::Color32::WHITE,
                     );
                 } else {
-                    ui.label("No texture data available");
+                    ui.label("❌ Render target not found");
                 }
-            },
-            None => {
-                ui.label("Render target not loaded");
             }
         }
         
@@ -257,6 +296,7 @@ fn display_render_target_in_grid(
     target: &bevy::asset::Handle<Image>,
     images: &Assets<Image>,
     label: &str,
+    texture_id: Option<egui::TextureId>,
 ) {
     ui.label(label);
     
@@ -269,44 +309,56 @@ fn display_render_target_in_grid(
         let display_height = display_size;
         let display_width = display_height * aspect_ratio;
         
-        // Simple visualization for grid
-        match images.get(target) {
-            Some(image) => {
-                if let Some(data) = &image.data {
-                    let data_size = data.len();
-                    let pixel_count = data_size / 4;
-                    
-                    // Use different colors for different render targets
-                    let color = match label {
-                        "Floor" => egui::Color32::from_rgb(100, 150, 100),
-                        "Walls" => egui::Color32::from_rgb(150, 100, 100),
-                        "Objects" => egui::Color32::from_rgb(100, 100, 150),
-                        _ => egui::Color32::from_rgb(120, 120, 120),
-                    };
-                    
-                    let (rect, _) = ui.allocate_exact_size(
-                        egui::Vec2::new(display_width, display_height),
-                        egui::Sense::hover(),
-                    );
-                    
-                    ui.painter().rect_filled(
-                        rect,
-                        egui::Rounding::same(4),
-                        color,
-                    );
-                    
-                    // Add text overlay
-                    ui.painter().text(
-                        rect.center(),
-                        egui::Align2::CENTER_CENTER,
-                        format!("{}×{}", size.x, size.y),
-                        egui::FontId::default(),
-                        egui::Color32::WHITE,
-                    );
-                }
+        // Try to display actual render target in grid
+        match texture_id {
+            Some(texture_id) => {
+                // Successfully got egui texture ID, display the actual image
+                ui.image(egui::load::SizedTexture::new(
+                    texture_id,
+                    egui::Vec2::new(display_width, display_height),
+                ));
             },
-            _ => {
-                ui.label("Not available");
+            None => {
+                // Fallback to visualization if texture not registered with egui
+                match images.get(target) {
+                    Some(image) => {
+                        if let Some(data) = &image.data {
+                            let data_size = data.len();
+                            let pixel_count = data_size / 4;
+                            
+                            // Use different colors for different render targets
+                            let color = match label {
+                                "Floor" => egui::Color32::from_rgb(100, 150, 100),
+                                "Walls" => egui::Color32::from_rgb(150, 100, 100),
+                                "Objects" => egui::Color32::from_rgb(100, 100, 150),
+                                _ => egui::Color32::from_rgb(120, 120, 120),
+                            };
+                            
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::Vec2::new(display_width, display_height),
+                                egui::Sense::hover(),
+                            );
+                            
+                            ui.painter().rect_filled(
+                                rect,
+                                egui::Rounding::same(4),
+                                color,
+                            );
+                            
+                            // Add text overlay
+                            ui.painter().text(
+                                rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                format!("{}×{}", size.x, size.y),
+                                egui::FontId::default(),
+                                egui::Color32::WHITE,
+                            );
+                        }
+                    },
+                    _ => {
+                        ui.label("Not avail");
+                    }
+                }
             }
         }
     } else {
