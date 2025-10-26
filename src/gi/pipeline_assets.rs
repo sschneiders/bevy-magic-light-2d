@@ -22,31 +22,30 @@ use crate::prelude::BevyMagicLight2DSettings;
 use crate::FloorCamera;
 
 #[rustfmt::skip]
+// With load_shader_library!, embedded shader dependencies are handled automatically
+// This resource is kept for compatibility but no longer needed for manual preloading
 #[derive(Default, Resource)]
 pub(crate) struct EmbeddedShaderDependencies {
-    loaded_shaders: Vec<Handle<Shader>>,
+    // No longer tracking loaded shaders manually - load_shader_library! handles it
 }
 
 #[rustfmt::skip]
+// With load_shader_library!, we don't need to manually preload shader dependencies
+// The macro handles embedding and loading automatically when needed
 pub(crate) fn system_load_embedded_shader_dependencies(
-    mut embedded_shader_deps: ResMut<EmbeddedShaderDependencies>,
-    asset_server: Res<AssetServer>,
+    mut _embedded_shader_deps: ResMut<EmbeddedShaderDependencies>,
+    _asset_server: Res<AssetServer>,
 ) {
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_attenuation.wgsl"));
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_camera.wgsl"));
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_halton.wgsl"));
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_math.wgsl"));
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_post_processing.wgsl"));
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_raymarch.wgsl"));
-    embedded_shader_deps.loaded_shaders.push(load_embedded_shader(&asset_server, "gi_types.wgsl"));
+    // Shaders are automatically loaded by load_shader_library! macro
+    // Manual preloading is no longer needed with Bevy 0.17's improved shader loading
 }
 
 pub(crate) fn load_embedded_shader(asset_server: &AssetServer, shader_file: &str)
     -> Handle<Shader>
 {
-    // With load_shader_library!, shaders are embedded and can be loaded directly
-    // Use the path format that matches the embedded asset structure
-    asset_server.load(format!("bevy_magic_light_2d/gi/shaders/{}", shader_file))
+    // With load_shader_library!, shaders are embedded and loaded using embedded:// protocol
+    // Try the embedded protocol format that should work with the macro
+    asset_server.load(format!("embedded://bevy_magic_light_2d/gi/shaders/{}", shader_file))
 }
 
 #[rustfmt::skip]
