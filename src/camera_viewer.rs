@@ -115,6 +115,7 @@ pub fn camera_viewer_window_system(
 
             if let Some(_handle) = target_handle {
                 ui.heading(format!("{} View", selected_camera.as_str()));
+                ui.label(format!("Handle: {:?}", _handle));
                 
                 // Display the camera render target as an image
                 let available_size = ui.available_size();
@@ -127,6 +128,13 @@ pub fn camera_viewer_window_system(
                         image.texture_descriptor.size.width, 
                         image.texture_descriptor.size.height));
                     ui.label(format!("Format: {:?}", image.texture_descriptor.format));
+                    ui.label(format!("Data available: {:?}", image.data.is_some()));
+                    if let Some(data) = &image.data {
+                        ui.label(format!("Data length: {:?}", data.len()));
+                    } else {
+                        ui.label("No data available");
+                    }
+                    ui.label(format!("Texture descriptor: {:?}", image.texture_descriptor));
                     
                     // Display the actual render target texture
                     ui.label("Render Target:");
@@ -231,6 +239,33 @@ pub fn camera_viewer_window_system(
                 ui.label(format!("{} - Render target displayed", selected_camera.as_str()));
             } else {
                 ui.label("No render target available for selected camera");
+                
+                // Debug: Show what we have access to
+                ui.separator();
+                ui.label("Debug Information:");
+                ui.label(format!("Selected Camera: {:?}", selected_camera));
+                ui.label("Available CameraTargets:");
+                ui.label(format!("Floor target: {:?}", camera_targets.floor_target));
+                ui.label(format!("Walls target: {:?}", camera_targets.walls_target));
+                ui.label(format!("Objects target: {:?}", camera_targets.objects_target));
+                
+                // Check if we can access the images
+                ui.label("Image Asset Access:");
+                if let Some(_floor_image) = images.get(&camera_targets.floor_target) {
+                    ui.label("✓ Floor image accessible");
+                } else {
+                    ui.label("✗ Floor image not accessible");
+                }
+                if let Some(_walls_image) = images.get(&camera_targets.walls_target) {
+                    ui.label("✓ Walls image accessible");
+                } else {
+                    ui.label("✗ Walls image not accessible");
+                }
+                if let Some(_objects_image) = images.get(&camera_targets.objects_target) {
+                    ui.label("✓ Objects image accessible");
+                } else {
+                    ui.label("✗ Objects image not accessible");
+                }
             }
         });
         
