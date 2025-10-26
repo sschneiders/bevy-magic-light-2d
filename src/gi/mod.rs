@@ -1,4 +1,4 @@
-use bevy::asset::embedded_asset;
+use bevy::shader::load_shader_library;
 use bevy::prelude::*;
 use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
@@ -70,18 +70,18 @@ impl Plugin for BevyMagicLight2DPlugin
         )
         .add_systems(PreUpdate, handle_window_resize);
 
-        embedded_asset!(app, "shaders/gi_attenuation.wgsl");
-        embedded_asset!(app, "shaders/gi_camera.wgsl");
-        embedded_asset!(app, "shaders/gi_halton.wgsl");
-        embedded_asset!(app, "shaders/gi_math.wgsl");
-        embedded_asset!(app, "shaders/gi_post_processing.wgsl");
-        embedded_asset!(app, "shaders/gi_raymarch.wgsl");
-        embedded_asset!(app, "shaders/gi_sdf.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_blend.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_bounce.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_filter.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_probe.wgsl");
-        embedded_asset!(app, "shaders/gi_types.wgsl");
+        load_shader_library!(app, "shaders/gi_attenuation.wgsl");
+        load_shader_library!(app, "shaders/gi_camera.wgsl");
+        load_shader_library!(app, "shaders/gi_halton.wgsl");
+        load_shader_library!(app, "shaders/gi_math.wgsl");
+        load_shader_library!(app, "shaders/gi_post_processing.wgsl");
+        load_shader_library!(app, "shaders/gi_raymarch.wgsl");
+        load_shader_library!(app, "shaders/gi_sdf.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_blend.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_bounce.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_filter.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_probe.wgsl");
+        load_shader_library!(app, "shaders/gi_types.wgsl");
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app

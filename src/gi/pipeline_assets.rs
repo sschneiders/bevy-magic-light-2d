@@ -1,7 +1,3 @@
-use std::path::Path;
-
-use bevy::asset::io::AssetSourceId;
-use bevy::asset::AssetPath;
 use bevy::prelude::*;
 use bevy::render::render_resource::{StorageBuffer, UniformBuffer};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
@@ -48,9 +44,9 @@ pub(crate) fn system_load_embedded_shader_dependencies(
 pub(crate) fn load_embedded_shader(asset_server: &AssetServer, shader_file: &str)
     -> Handle<Shader>
 {
-    let source = AssetSourceId::from("embedded");
-    let path = Path::new("bevy_magic_light_2d").join("gi/shaders/");
-    asset_server.load(AssetPath::from_path(&path.join(shader_file)).with_source(&source))
+    // With load_shader_library!, shaders are embedded and can be loaded directly
+    // Use the path format that matches the embedded asset structure
+    asset_server.load(format!("bevy_magic_light_2d/gi/shaders/{}", shader_file))
 }
 
 #[rustfmt::skip]
