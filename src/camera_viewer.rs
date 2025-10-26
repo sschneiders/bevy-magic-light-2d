@@ -54,15 +54,15 @@ pub fn camera_viewer_window_system(
         return;
     }
 
-    let ctx = contexts.ctx_mut().expect("No egui context found");
+    let ctx = contexts.ctx_mut();
     let current_selected = viewer_state.selected_camera;
-    let mut window_open = viewer_state.window_open;
     
-    egui::Window::new("Camera Viewer")
-        .open(&mut window_open)
-        .resizable(true)
-        .default_height(400.0)
-        .show(ctx, |ui| {
+    if let Ok(ctx) = ctx {
+        egui::Window::new("Camera Viewer")
+            .open(&mut viewer_state.window_open)
+            .resizable(true)
+            .default_height(400.0)
+            .show(ctx, |ui| {
             ui.heading("Camera View Selection");
             
             ui.horizontal(|ui| {
@@ -121,7 +121,6 @@ pub fn camera_viewer_window_system(
                 ui.label("No render target available for selected camera");
             }
         });
-        
-    // Update the viewer state after window interactions
-    viewer_state.window_open = window_open;
+    }
+
 }

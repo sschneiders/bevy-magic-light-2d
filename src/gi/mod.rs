@@ -67,12 +67,12 @@ impl Plugin for BevyMagicLight2DPlugin
                 detect_target_sizes,
                 system_setup_gi_pipeline.after(detect_target_sizes),
                 setup_post_processing_camera.after(system_setup_gi_pipeline),
-                setup_camera_viewer,
             )
                 .chain(),
         )
+        .add_systems(Startup, setup_camera_viewer)
         .add_systems(PreUpdate, handle_window_resize)
-        .add_systems(Update, camera_viewer_window_system);
+        .add_systems(bevy_egui::EguiPrimaryContextPass, camera_viewer_window_system);
 
         load_shader_library!(app, "shaders/gi_attenuation.wgsl");
         load_shader_library!(app, "shaders/gi_camera.wgsl");
