@@ -3,7 +3,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
-use bevy_inspector_egui::bevy_egui::{EguiPlugin, EguiContexts};
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_magic_light_2d::prelude::*;
 
@@ -37,8 +37,19 @@ fn main()
         .register_type::<LightPassParams>()
         .add_systems(Startup, setup.after(setup_post_processing_camera))
         .add_systems(Update, system_move_camera)
-        .add_systems(Update, toggle_camera_viewer)
+        .add_systems(Update, toggle_camera_viewer_simple)
         .run();
+}
+
+fn toggle_camera_viewer_simple(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut viewer_state: ResMut<CameraViewerState>,
+) {
+    // Press 'V' key to toggle camera viewer
+    if keyboard.just_pressed(KeyCode::KeyV) {
+        viewer_state.show_window = !viewer_state.show_window;
+        println!("Camera viewer toggled: {}", viewer_state.show_window);
+    }
 }
 
 fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>)
@@ -164,34 +175,5 @@ fn system_move_camera(
         camera_transform.translation.x += movement.x;
         camera_transform.translation.y += movement.y;
     }
-}
-
-fn toggle_camera_viewer(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut egui_contexts: EguiContexts,
-    mut viewer_state: ResMut<CameraViewerState>,
-) {
-    // Press 'V' key to toggle camera viewer
-    if keyboard.just_pressed(KeyCode::KeyV) {
-        viewer_state.show_window = !viewer_state.show_window;
-    }
-    
-    // Show help text
-    egui::Window::new("🎮 Controls")
-        .collapsible(false)
-        .resizable(false)
-        .fixed_pos([10.0, 10.0])
-        .show(egui_contexts.ctx_mut(), |ui| {
-            ui.label("Minimal Example + Camera Viewer");
-            ui.separator();
-            ui.label("WASD - Move camera");
-            ui.label("V - Toggle camera viewer");
-            ui.separator();
-            ui.label("The camera viewer lets you see the");
-            ui.label("render targets for different layers:");
-            ui.label("• Floor, Walls, Objects layers");
-            ui.label("• Post-processing (final result)");
-            ui.label("• Combined view of all layers");
-        });
 }
 
