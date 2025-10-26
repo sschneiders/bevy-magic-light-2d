@@ -28,6 +28,7 @@ fn main()
             EguiPlugin {
                 enable_multipass_for_primary_context: false,
             },
+            CameraViewerPlugin,
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .register_type::<BevyMagicLight2DSettings>()
@@ -35,6 +36,7 @@ fn main()
         .add_systems(Startup, setup.after(setup_post_processing_camera))
         .add_systems(Update, system_move_camera)
         .add_systems(Update, move_collider)
+        .add_systems(Update, toggle_camera_viewer)
         .insert_resource(BevyMagicLight2DSettings {
             light_pass_params: LightPassParams {
                 reservoir_size: 8,
@@ -171,5 +173,16 @@ fn move_collider(mut query_mover: Query<&mut Transform, With<Mover>>, time: Res<
         transform.translation.x = radius * theta.cos() as f32;
         transform.translation.y = radius * theta.sin() as f32;
         transform.rotation = Quat::from_rotation_z(theta as f32);
+    }
+}
+
+fn toggle_camera_viewer(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut viewer_state: ResMut<CameraViewerState>,
+) {
+    // Press 'V' key to toggle camera viewer
+    if keyboard.just_pressed(KeyCode::KeyV) {
+        viewer_state.show_window = !viewer_state.show_window;
+        println!("Camera viewer toggled: {}", viewer_state.show_window);
     }
 }

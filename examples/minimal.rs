@@ -1,6 +1,8 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_magic_light_2d::prelude::*;
 
 fn main()
@@ -21,9 +23,19 @@ fn main()
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
             BevyMagicLight2DPlugin,
+            EguiPlugin {
+                enable_multipass_for_primary_context: false,
+            },
+            CameraViewerPlugin,
+            ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
+        .register_type::<LightOccluder2D>()
+        .register_type::<OmniLightSource2D>()
+        .register_type::<BevyMagicLight2DSettings>()
+        .register_type::<LightPassParams>()
         .add_systems(Startup, setup.after(setup_post_processing_camera))
         .add_systems(Update, system_move_camera)
+        .add_systems(Update, toggle_camera_viewer)
         .run();
 }
 
@@ -149,5 +161,16 @@ fn system_move_camera(
         let movement = (*camera_target - camera_transform.translation) * blend_ratio;
         camera_transform.translation.x += movement.x;
         camera_transform.translation.y += movement.y;
+    }
+}
+
+fn toggle_camera_viewer(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut viewer_state: ResMut<CameraViewerState>,
+) {
+    // Press 'V' key to toggle camera viewer
+    if keyboard.just_pressed(KeyCode::KeyV) {
+        viewer_state.show_window = !viewer_state.show_window;
+        println!("Camera viewer toggled: {}", viewer_state.show_window);
     }
 }
