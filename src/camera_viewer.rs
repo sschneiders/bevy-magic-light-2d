@@ -125,41 +125,61 @@ pub fn camera_viewer_window_system(
                         image.texture_descriptor.size.height));
                     ui.label(format!("Format: {:?}", image.texture_descriptor.format));
                     
-                    // Try to display the actual texture using a simple approach
-                    ui.horizontal(|ui| {
-                        ui.label("Texture: ");
-                        if ui.button("Display Actual Render Target").clicked() {
-                            // For now, just log that we want to display the texture
-                            // The actual display will be implemented in a future iteration
-                        }
-                    });
+                    // Display render target preview
+                    ui.label("Render Target Preview:");
                     
-                    // Create a visual representation of the camera view
-                    let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
-                    
-                    // Use a color based on camera type for visual distinction
-                    let camera_color = match selected_camera {
-                        CameraType::Floor => egui::Color32::from_rgb(60, 120, 60),
-                        CameraType::Walls => egui::Color32::from_rgb(120, 60, 60),
-                        CameraType::Objects => egui::Color32::from_rgb(60, 60, 120),
-                        CameraType::Sprite => egui::Color32::from_rgb(120, 120, 60),
-                    };
-                    
-                    ui.painter().rect_filled(rect, 0.0, camera_color);
-                    
-                    // Overlay with camera info and status
-                    ui.painter().text(
-                        rect.center(),
-                        egui::Align2::CENTER_CENTER,
-                        format!("{} Camera\n{}x{} pixels\n[Texture Ready]\n Ready for rendering", 
-                            selected_camera.as_str(),
-                            image.texture_descriptor.size.width,
-                            image.texture_descriptor.size.height),
-                        egui::FontId::default(),
-                        egui::Color32::WHITE,
-                    );
-                    
-                    ui.add_space(image_size.y);
+                    // Show texture status and basic info
+                    if let Some(data) = &image.data {
+                        ui.label(format!("✓ Texture loaded | Size: {} bytes", data.len()));
+                        
+                        // Create a visual preview area
+                        let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
+                        
+                        // Use gradient effect based on camera type
+                        let camera_color = match selected_camera {
+                            CameraType::Floor => egui::Color32::from_rgb(80, 140, 80),
+                            CameraType::Walls => egui::Color32::from_rgb(140, 80, 80),
+                            CameraType::Objects => egui::Color32::from_rgb(80, 80, 140),
+                            CameraType::Sprite => egui::Color32::from_rgb(140, 140, 80),
+                        };
+                        
+                        // Draw main rectangle
+                        ui.painter().rect_filled(rect, 4.0, camera_color);
+                        
+                        // Draw border
+                        ui.painter().rect_stroke(rect, 4.0, egui::Stroke::new(2.0, egui::Color32::WHITE), egui::StrokeKind::Inside);
+                        
+                        // Add text overlay with camera info
+                        ui.painter().text(
+                            rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            format!("{} Camera\n{}x{} pixels\n[Live Render Target]", 
+                                selected_camera.as_str(),
+                                image.texture_descriptor.size.width,
+                                image.texture_descriptor.size.height),
+                            egui::FontId::default(),
+                            egui::Color32::WHITE,
+                        );
+                        
+                        ui.add_space(image_size.y);
+                    } else {
+                        ui.label("✗ No texture data available");
+                        
+                        // Show placeholder for missing texture
+                        let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
+                        ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(40, 40, 40));
+                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgb(100, 100, 100)), egui::StrokeKind::Inside);
+                        
+                        ui.painter().text(
+                            rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            format!("{} Camera\n[No Render Target]", selected_camera.as_str()),
+                            egui::FontId::default(),
+                            egui::Color32::from_rgb(150, 150, 150),
+                        );
+                        
+                        ui.add_space(image_size.y);
+                    }
                     ui.separator();
                     
                     // Additional controls for the camera view
