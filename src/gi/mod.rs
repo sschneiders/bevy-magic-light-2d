@@ -143,30 +143,17 @@ pub fn handle_window_resize(
             return;
         }
         
-        // Update or create the post-processing mesh
-        if res_post_processing_handles.rect_mesh == Handle::default() {
-            res_post_processing_handles.rect_mesh = assets_mesh.add(Mesh::from(bevy::math::primitives::Rectangle::new(
+        // Create post-processing mesh if not initialized
+        if res_post_processing_handles.rect_mesh.is_none() {
+            res_post_processing_handles.rect_mesh = Some(assets_mesh.add(Mesh::from(bevy::math::primitives::Rectangle::new(
                 res_target_sizes.primary_target_size.x,
                 res_target_sizes.primary_target_size.y,
-            )));
-        } else {
-            let _ = assets_mesh.insert(
-                res_post_processing_handles.rect_mesh.id(),
-                Mesh::from(bevy::math::primitives::Rectangle::new(
-                    res_target_sizes.primary_target_size.x,
-                    res_target_sizes.primary_target_size.y,
-                )),
-            );
+            ))));
         }
 
-        // Update or create the post-processing material
-        if res_post_processing_handles.material == Handle::default() {
-            res_post_processing_handles.material = assets_material.add(PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper));
-        } else {
-            let _ = assets_material.insert(
-                res_post_processing_handles.material.id(),
-                PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
-            );
+        // Create post-processing material if not initialized
+        if res_post_processing_handles.material.is_none() {
+            res_post_processing_handles.material = Some(assets_material.add(PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper)));
         }
 
         *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};

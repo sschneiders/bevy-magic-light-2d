@@ -5,15 +5,15 @@ pub const GI_SCREEN_PROBE_SIZE: i32 = 8;
 /// Resource to store strong handles for post-processing assets
 #[derive(Resource)]
 pub struct PostProcessingHandles {
-    pub rect_mesh: Handle<Mesh>,
-    pub material: Handle<crate::gi::compositing::PostProcessingMaterial>,
+    pub rect_mesh: Option<Handle<Mesh>>,
+    pub material: Option<Handle<crate::gi::compositing::PostProcessingMaterial>>,
 }
 
 impl Default for PostProcessingHandles {
     fn default() -> Self {
         Self {
-            rect_mesh: Handle::default(),
-            material: Handle::default(),
+            rect_mesh: None,
+            material: None,
         }
     }
 }

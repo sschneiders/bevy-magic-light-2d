@@ -189,35 +189,30 @@ pub fn setup_post_processing_camera(
 
     *camera_targets = CameraTargets::create(&mut images, &target_sizes);
 
-    // Create or update the post-processing mesh and material handles
-    if post_processing_handles.rect_mesh == Handle::default() {
-        post_processing_handles.rect_mesh = meshes.add(Mesh::from(bevy::math::primitives::Rectangle::new(
+    // Create post-processing mesh if not initialized
+    if post_processing_handles.rect_mesh.is_none() {
+        post_processing_handles.rect_mesh = Some(meshes.add(Mesh::from(bevy::math::primitives::Rectangle::new(
             target_sizes.primary_target_size.x,
             target_sizes.primary_target_size.y,
-        )));
-    } else {
-        let quad =  Mesh::from(bevy::math::primitives::Rectangle::new(
-            target_sizes.primary_target_size.x,
-            target_sizes.primary_target_size.y,
-        ));
-        let _ = meshes.insert(post_processing_handles.rect_mesh.id(), quad);
+        ))));
     }
 
-    if post_processing_handles.material == Handle::default() {
-        post_processing_handles.material = materials.add(PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper));
-    } else {
-        let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
-        let _ = materials.insert(post_processing_handles.material.id(), material);
+    // Create post-processing material if not initialized
+    if post_processing_handles.material.is_none() {
+        post_processing_handles.material = Some(materials.add(PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper)));
     }
 
     // This specifies the layer used for the post processing camera, which
     // will be attached to the post processing camera and 2d quad.
     let layer = RenderLayers::layer(CAMERA_LAYER_POST_PROCESSING);
 
+    let rect_mesh = post_processing_handles.rect_mesh.clone().expect("PostProcessing rect mesh should be initialized");
+    let material = post_processing_handles.material.clone().expect("PostProcessing material should be initialized");
+
     commands.spawn((
         PostProcessingQuad,
-        Mesh2d(post_processing_handles.rect_mesh.clone()),
-        MeshMaterial2d(post_processing_handles.material.clone()),
+        Mesh2d(rect_mesh.clone()),
+        MeshMaterial2d(material.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
         layer.clone(),
     ));
@@ -237,8 +232,8 @@ pub fn setup_post_processing_camera(
     ))
     .insert((
         PostProcessingQuad,
-        Mesh2d(post_processing_handles.rect_mesh.clone()),
-        MeshMaterial2d(post_processing_handles.material.clone()),
+        Mesh2d(rect_mesh),
+        MeshMaterial2d(material),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
     ));
 }
