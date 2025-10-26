@@ -28,38 +28,26 @@ wgpu 25 introduces breaking changes in bind group layout requirements:
 
 **After**:
 ```wgsl
-@group(MATERIAL_BIND_GROUP) @binding(0) var in_floor_texture:              texture_2d<f32>;
-@group(MATERIAL_BIND_GROUP) @binding(1) var in_floor_sampler:              sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var in_floor_texture:              texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var in_floor_sampler:              sampler;
 // ... 8 total texture/sampler bindings using MATERIAL_BIND_GROUP
-```
-
-### 2. Material Specialization Update
-
-**File**: `src/gi/compositing.rs`
-
-Added `MATERIAL_BIND_GROUP` shader definition to the post-processing material specialization:
-
-```rust
-shader_defs.push(ShaderDefVal::UInt(
-    "MATERIAL_BIND_GROUP".to_string(),
-    3u32,
-));
 ```
 
 ### 3. Why This Approach
 
-The post-processing shader is used by `PostProcessingMaterial` which implements `Material2d`. According to the new wgpu 25 layout, materials should use the material bind group. Using the `MATERIAL_BIND_GROUP` shader definition ensures:
+The post-processing shader is used by `PostProcessingMaterial` which implements `Material2d`. According to the new wgpu 25 layout, materials should use the material bind group. Using the `#{MATERIAL_BIND_GROUP}` syntax ensures:
 
-1. **Future Compatibility**: If Bevy changes bind group numbering again, only the shader definition value needs to change
-2. **Clear Intent**: Makes it explicit that this shader uses the material bind group
-3. **Consistency**: Aligns with Bevy's recommended migration approach
+1. **Built-in Support**: Bevy automatically provides the MATERIAL_BIND_GROUP shader definition for all Material2d implementations
+2. **Future Compatibility**: If Bevy changes bind group numbering again, MATERIAL_BIND_GROUP will be updated automatically
+3. **Clear Intent**: Makes it explicit that this shader uses the material bind group
+4. **Consistency**: Aligns with Bevy's official migration examples
 
 ## Migration Summary
 
-- ✅ Updated `gi_post_processing.wgsl` to use `@group(MATERIAL_BIND_GROUP)` instead of `@group(2)`
-- ✅ Added `MATERIAL_BIND_GROUP = 3` shader definition in material specialization
+- ✅ Updated `gi_post_processing.wgsl` to use `@group(#{MATERIAL_BIND_GROUP})` instead of `@group(2)`
 - ✅ Verified compilation with `cargo check`
 - ✅ No float constants needed explicit typing (all constants already had proper types)
+- ✅ Removed manual MATERIAL_BIND_GROUP shader definition (Bevy provides it automatically for Material2d)
 
 ## Testing
 
