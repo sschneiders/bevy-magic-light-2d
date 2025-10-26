@@ -43,9 +43,9 @@ pub(crate) fn system_load_embedded_shader_dependencies(
 pub(crate) fn load_embedded_shader(asset_server: &AssetServer, shader_file: &str)
     -> Handle<Shader>
 {
-    // With load_shader_library!, shaders are embedded and loaded using embedded:// protocol
-    // Try the embedded protocol format that should work with the macro
-    asset_server.load(format!("embedded://bevy_magic_light_2d/gi/shaders/{}", shader_file))
+    // With load_shader_library!, shaders should be loadable using their import paths
+    // Try loading by the shader file name directly from the embedded library
+    asset_server.load(shader_file.to_string())
 }
 
 #[rustfmt::skip]
