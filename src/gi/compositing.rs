@@ -16,7 +16,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::pbr::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
 use bevy::sprite_render::{Material2d, Material2dKey};
 use bevy::post_process::bloom::Bloom;
-use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
+use crate::gi::constants::PostProcessingHandles;
 use crate::gi::pipeline::GiTargetsWrapper;
 use crate::gi::render_layer::CAMERA_LAYER_POST_PROCESSING;
 use crate::gi::resource::ComputedTargetSizes;
@@ -181,22 +181,34 @@ pub fn setup_post_processing_camera(
     mut materials:                 ResMut<Assets<PostProcessingMaterial>>,
     mut images:                    ResMut<Assets<Image>>,
     mut camera_targets:            ResMut<CameraTargets>,
+    mut post_processing_handles:   ResMut<PostProcessingHandles>,
 
     target_sizes:                 Res<ComputedTargetSizes>,
     gi_targets_wrapper:           Res<GiTargetsWrapper>,
 ) {
 
-    let quad =  Mesh::from(bevy::math::primitives::Rectangle::new(
-        target_sizes.primary_target_size.x,
-        target_sizes.primary_target_size.y,
-    ));
-
-    let _ = meshes.insert(POST_PROCESSING_RECT.id(), quad);
-
     *camera_targets = CameraTargets::create(&mut images, &target_sizes);
 
-    let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
-    let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), material);
+    // Create or update the post-processing mesh and material handles
+    if post_processing_handles.rect_mesh == Handle::default() {
+        post_processing_handles.rect_mesh = meshes.add(Mesh::from(bevy::math::primitives::Rectangle::new(
+            target_sizes.primary_target_size.x,
+            target_sizes.primary_target_size.y,
+        )));
+    } else {
+        let quad =  Mesh::from(bevy::math::primitives::Rectangle::new(
+            target_sizes.primary_target_size.x,
+            target_sizes.primary_target_size.y,
+        ));
+        let _ = meshes.insert(post_processing_handles.rect_mesh.id(), quad);
+    }
+
+    if post_processing_handles.material == Handle::default() {
+        post_processing_handles.material = materials.add(PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper));
+    } else {
+        let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
+        let _ = materials.insert(post_processing_handles.material.id(), material);
+    }
 
     // This specifies the layer used for the post processing camera, which
     // will be attached to the post processing camera and 2d quad.
@@ -204,8 +216,8 @@ pub fn setup_post_processing_camera(
 
     commands.spawn((
         PostProcessingQuad,
-        Mesh2d(POST_PROCESSING_RECT.clone()),
-        MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
+        Mesh2d(post_processing_handles.rect_mesh.clone()),
+        MeshMaterial2d(post_processing_handles.material.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
         layer.clone(),
     ));
@@ -225,8 +237,8 @@ pub fn setup_post_processing_camera(
     ))
     .insert((
         PostProcessingQuad,
-        Mesh2d(POST_PROCESSING_RECT.clone()),
-        MeshMaterial2d(POST_PROCESSING_MATERIAL.clone()),
+        Mesh2d(post_processing_handles.rect_mesh.clone()),
+        MeshMaterial2d(post_processing_handles.material.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.5)),
     ));
 }

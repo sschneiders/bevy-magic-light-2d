@@ -9,7 +9,7 @@ use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
 use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
-use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
+use crate::gi::constants::PostProcessingHandles;
 use crate::gi::pipeline::{
     system_queue_bind_groups,
     system_setup_gi_pipeline,
@@ -58,6 +58,7 @@ impl Plugin for BevyMagicLight2DPlugin
         .init_resource::<BevyMagicLight2DSettings>()
         .init_resource::<ComputedTargetSizes>()
         .init_resource::<EmbeddedShaderDependencies>()
+        .init_resource::<PostProcessingHandles>()
         .add_systems(
             PreStartup,
             (
@@ -125,6 +126,7 @@ pub fn handle_window_resize(
     mut res_target_sizes:       ResMut<ComputedTargetSizes>,
     mut res_gi_targets_wrapper: ResMut<GiTargetsWrapper>,
     mut res_camera_targets:     ResMut<CameraTargets>,
+    mut res_post_processing_handles: ResMut<PostProcessingHandles>,
 
     mut window_resized_evr: MessageReader<WindowResized>,
 ) {
@@ -141,18 +143,31 @@ pub fn handle_window_resize(
             return;
         }
         
-        let _ = assets_mesh.insert(
-            POST_PROCESSING_RECT.id(),
-            Mesh::from(bevy::math::primitives::Rectangle::new(
+        // Update or create the post-processing mesh
+        if res_post_processing_handles.rect_mesh == Handle::default() {
+            res_post_processing_handles.rect_mesh = assets_mesh.add(Mesh::from(bevy::math::primitives::Rectangle::new(
                 res_target_sizes.primary_target_size.x,
                 res_target_sizes.primary_target_size.y,
-            )),
-        );
+            )));
+        } else {
+            let _ = assets_mesh.insert(
+                res_post_processing_handles.rect_mesh.id(),
+                Mesh::from(bevy::math::primitives::Rectangle::new(
+                    res_target_sizes.primary_target_size.x,
+                    res_target_sizes.primary_target_size.y,
+                )),
+            );
+        }
 
-        let _ = assets_material.insert(
-            POST_PROCESSING_MATERIAL.id(),
-            PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
-        );
+        // Update or create the post-processing material
+        if res_post_processing_handles.material == Handle::default() {
+            res_post_processing_handles.material = assets_material.add(PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper));
+        } else {
+            let _ = assets_material.insert(
+                res_post_processing_handles.material.id(),
+                PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
+            );
+        }
 
         *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
         *res_camera_targets = CameraTargets::create(&mut assets_image, &res_target_sizes);
