@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+pub mod camera_viewer;
 pub mod gi;
 pub mod prelude;
 

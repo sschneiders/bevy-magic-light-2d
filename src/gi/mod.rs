@@ -8,6 +8,7 @@ use bevy::render::{Render, RenderApp, RenderSystems, RenderStartup};
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
 use self::pipeline::GiTargets;
+use crate::camera_viewer::{setup_camera_viewer, camera_viewer_window_system};
 use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::{
@@ -52,6 +53,7 @@ impl Plugin for BevyMagicLight2DPlugin
         app.add_plugins((
             ExtractResourcePlugin::<GiTargetsWrapper>::default(),
             Material2dPlugin::<PostProcessingMaterial>::default(),
+            bevy_egui::EguiPlugin::default(),
         ))
         .init_resource::<CameraTargets>()
         .init_resource::<GiTargetsWrapper>()
@@ -65,10 +67,12 @@ impl Plugin for BevyMagicLight2DPlugin
                 detect_target_sizes,
                 system_setup_gi_pipeline.after(detect_target_sizes),
                 setup_post_processing_camera.after(system_setup_gi_pipeline),
+                setup_camera_viewer,
             )
                 .chain(),
         )
-        .add_systems(PreUpdate, handle_window_resize);
+        .add_systems(PreUpdate, handle_window_resize)
+        .add_systems(Update, camera_viewer_window_system);
 
         load_shader_library!(app, "shaders/gi_attenuation.wgsl");
         load_shader_library!(app, "shaders/gi_camera.wgsl");
