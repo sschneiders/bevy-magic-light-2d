@@ -1,23 +1,26 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+// Import removed as it's unused
 use crate::{SpriteCamera, FloorCamera, WallsCamera, ObjectsCamera};
 
 #[derive(Resource)]
 pub struct CameraViewerState {
     pub selected_camera: CameraType,
     pub window_open: bool,
+    loaded_texture_ids: std::collections::HashMap<CameraType, egui::TextureId>,
 }
 
 impl Default for CameraViewerState {
     fn default() -> Self {
         Self {
             selected_camera: CameraType::Floor,
-            window_open: true,
+            window_open: false,
+            loaded_texture_ids: std::collections::HashMap::new(),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CameraType {
     Floor,
     Walls,
@@ -125,51 +128,71 @@ pub fn camera_viewer_window_system(
                         image.texture_descriptor.size.height));
                     ui.label(format!("Format: {:?}", image.texture_descriptor.format));
                     
-                    // Display render target preview
-                    ui.label("Render Target Preview:");
+                    // Display the actual render target texture
+                    ui.label("Render Target:");
                     
-                    // Show texture status and basic info
+                    // Try to display the actual image data
                     if let Some(data) = &image.data {
-                        ui.label(format!("✓ Texture loaded | Size: {} bytes", data.len()));
-                        
-                        // Create a visual preview area
-                        let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
-                        
-                        // Use gradient effect based on camera type
-                        let camera_color = match selected_camera {
-                            CameraType::Floor => egui::Color32::from_rgb(80, 140, 80),
-                            CameraType::Walls => egui::Color32::from_rgb(140, 80, 80),
-                            CameraType::Objects => egui::Color32::from_rgb(80, 80, 140),
-                            CameraType::Sprite => egui::Color32::from_rgb(140, 140, 80),
-                        };
-                        
-                        // Draw main rectangle
-                        ui.painter().rect_filled(rect, 4.0, camera_color);
-                        
-                        // Draw border
-                        ui.painter().rect_stroke(rect, 4.0, egui::Stroke::new(2.0, egui::Color32::WHITE), egui::StrokeKind::Inside);
-                        
-                        // Add text overlay with camera info
-                        ui.painter().text(
-                            rect.center(),
-                            egui::Align2::CENTER_CENTER,
-                            format!("{} Camera\n{}x{} pixels\n[Live Render Target]", 
-                                selected_camera.as_str(),
-                                image.texture_descriptor.size.width,
-                                image.texture_descriptor.size.height),
-                            egui::FontId::default(),
-                            egui::Color32::WHITE,
-                        );
-                        
-                        ui.add_space(image_size.y);
+                        if !data.is_empty() {
+                            ui.label(format!("✓ Texture loaded | Size: {} bytes", data.len()));
+                            
+                            // Check if we can get the format right for egui display
+                            match image.texture_descriptor.format {
+                                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb |
+                                bevy::render::render_resource::TextureFormat::Rgba8Unorm => {
+                                    // Create egui ColorImage from Bevy Image data
+                                    let size = [image.texture_descriptor.size.width as usize, 
+                                               image.texture_descriptor.size.height as usize];
+                                    
+                                    // Convert the image data for egui - need to ensure proper format
+                                    let color_image = egui::ColorImage::from_rgba_unmultiplied(size, data);
+                                    
+                                    // Load texture into egui and store the texture ID
+                                    let texture_name = format!("camera_render_{:?}", selected_camera);
+                                    let texture_handle = ui.ctx().load_texture(
+                                        texture_name,
+                                        color_image,
+                                        egui::TextureOptions::default(),
+                                    );
+                                    
+                                    // Store the texture ID for future use
+                                    let texture_id = texture_handle.id();
+                                    viewer_state.loaded_texture_ids.insert(selected_camera, texture_id);
+                                    
+                                    // Display the actual image using the correct texture ID
+                                    ui.image(egui::load::SizedTexture::new(
+                                        texture_id,
+                                        image_size
+                                    ));
+                                }
+                                _ => {
+                                    ui.label(format!("Unsupported format: {:?}", image.texture_descriptor.format));
+                                    // Show fallback visual
+                                    let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
+                                    let camera_color = match selected_camera {
+                                        CameraType::Floor => egui::Color32::from_rgb(80, 140, 80),
+                                        CameraType::Walls => egui::Color32::from_rgb(140, 80, 80),
+                                        CameraType::Objects => egui::Color32::from_rgb(80, 80, 140),
+                                        CameraType::Sprite => egui::Color32::from_rgb(140, 140, 80),
+                                    };
+                                    ui.painter().rect_filled(rect, 4.0, camera_color);
+                                    ui.add_space(image_size.y);
+                                }
+                            }
+                        } else {
+                            ui.label("✗ Texture data is empty");
+                            // Show empty texture placeholder
+                            let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
+                            ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(40, 40, 40));
+                            ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgb(100, 100, 100)), egui::StrokeKind::Inside);
+                            ui.add_space(image_size.y);
+                        }
                     } else {
                         ui.label("✗ No texture data available");
-                        
                         // Show placeholder for missing texture
                         let rect = egui::Rect::from_min_size(ui.cursor().min, image_size);
                         ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(40, 40, 40));
                         ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgb(100, 100, 100)), egui::StrokeKind::Inside);
-                        
                         ui.painter().text(
                             rect.center(),
                             egui::Align2::CENTER_CENTER,
@@ -177,7 +200,6 @@ pub fn camera_viewer_window_system(
                             egui::FontId::default(),
                             egui::Color32::from_rgb(150, 150, 150),
                         );
-                        
                         ui.add_space(image_size.y);
                     }
                     ui.separator();
