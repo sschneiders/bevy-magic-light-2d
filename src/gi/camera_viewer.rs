@@ -1,7 +1,7 @@
 
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
-use bevy_inspector_egui::bevy_egui::{egui, EguiContexts};
+use bevy_inspector_egui::bevy_egui::{egui, EguiContexts, egui::load::SizedTexture};
 
 use crate::gi::compositing::CameraTargets;
 use crate::gi::render_layer::{
@@ -198,29 +198,55 @@ fn display_render_target(
         let display_height = available_size.y.min(400.0);
         let display_width = display_height * aspect_ratio;
         
-        // Display a colored rectangle as placeholder
-        let (rect, _) = ui.allocate_exact_size(
-            egui::Vec2::new(display_width, display_height),
-            egui::Sense::hover(),
-        );
-        
-        ui.painter().rect_filled(
-            rect,
-            egui::Rounding::same(4),
-            egui::Color32::from_rgb(100, 100, 150),
-        );
-        
-        // Add text overlay
-        ui.painter().text(
-            rect.center(),
-            egui::Align2::CENTER_CENTER,
-            format!("{} ({}×{})", label, size.x, size.y),
-            egui::FontId::default(),
-            egui::Color32::WHITE,
-        );
+        // For now, show basic texture info with a simple visualization
+        match images.get(target) {
+            Some(image) => {
+                if let Some(data) = &image.data {
+                    // Show that we have texture data with a simple visualization
+                    let data_size = data.len();
+                    let pixel_count = data_size / 4; // RGBA
+                    
+                    ui.label(format!("Texture data: {} pixels", pixel_count));
+                    ui.label(format!("Buffer size: {} bytes", data_size));
+                    
+                    // Simple colored rectangle to indicate this render target exists
+                    let (rect, _) = ui.allocate_exact_size(
+                        egui::Vec2::new(display_width, display_height),
+                        egui::Sense::hover(),
+                    );
+                    
+                    // Use different colors for different render targets
+                    let color = match label {
+                        "Floor Layer" => egui::Color32::from_rgb(100, 150, 100),
+                        "Walls Layer" => egui::Color32::from_rgb(150, 100, 100),
+                        "Objects Layer" => egui::Color32::from_rgb(100, 100, 150),
+                        _ => egui::Color32::from_rgb(120, 120, 120),
+                    };
+                    
+                    ui.painter().rect_filled(
+                        rect,
+                        egui::Rounding::same(4),
+                        color,
+                    );
+                    
+                    // Add text overlay
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        format!("{} ({}×{})", label, size.x, size.y),
+                        egui::FontId::default(),
+                        egui::Color32::WHITE,
+                    );
+                } else {
+                    ui.label("No texture data available");
+                }
+            },
+            None => {
+                ui.label("Render target not loaded");
+            }
+        }
         
         ui.label(format!("Size: {}×{}", size.x, size.y));
-        ui.label("Render target visualization");
     } else {
         ui.label("Render target not available");
     }
@@ -243,26 +269,46 @@ fn display_render_target_in_grid(
         let display_height = display_size;
         let display_width = display_height * aspect_ratio;
         
-        // Display a colored rectangle as placeholder
-        let (rect, _) = ui.allocate_exact_size(
-            egui::Vec2::new(display_width, display_height),
-            egui::Sense::hover(),
-        );
-        
-        ui.painter().rect_filled(
-            rect,
-            egui::Rounding::same(4),
-            egui::Color32::from_rgb(80, 80, 120),
-        );
-        
-        // Add text overlay
-        ui.painter().text(
-            rect.center(),
-            egui::Align2::CENTER_CENTER,
-            label,
-            egui::FontId::default(),
-            egui::Color32::WHITE,
-        );
+        // Simple visualization for grid
+        match images.get(target) {
+            Some(image) => {
+                if let Some(data) = &image.data {
+                    let data_size = data.len();
+                    let pixel_count = data_size / 4;
+                    
+                    // Use different colors for different render targets
+                    let color = match label {
+                        "Floor" => egui::Color32::from_rgb(100, 150, 100),
+                        "Walls" => egui::Color32::from_rgb(150, 100, 100),
+                        "Objects" => egui::Color32::from_rgb(100, 100, 150),
+                        _ => egui::Color32::from_rgb(120, 120, 120),
+                    };
+                    
+                    let (rect, _) = ui.allocate_exact_size(
+                        egui::Vec2::new(display_width, display_height),
+                        egui::Sense::hover(),
+                    );
+                    
+                    ui.painter().rect_filled(
+                        rect,
+                        egui::Rounding::same(4),
+                        color,
+                    );
+                    
+                    // Add text overlay
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        format!("{}×{}", size.x, size.y),
+                        egui::FontId::default(),
+                        egui::Color32::WHITE,
+                    );
+                }
+            },
+            _ => {
+                ui.label("Not available");
+            }
+        }
     } else {
         ui.label("Not available");
     }
