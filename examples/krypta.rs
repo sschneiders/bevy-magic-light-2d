@@ -56,6 +56,7 @@ fn main()
                     },
                 }),
             BevyMagicLight2DPlugin,
+            CameraViewerPlugin,
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .insert_resource(BevyMagicLight2DSettings {
@@ -77,6 +78,7 @@ fn main()
         .add_systems(Startup, setup.after(setup_post_processing_camera))
         .add_systems(Update, (system_move_camera, system_camera_zoom))
         .add_systems(Update, system_control_mouse_light.after(system_move_camera))
+        .add_systems(Update, toggle_camera_viewer)
         .run();
 }
 
@@ -823,7 +825,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                target: RenderTarget::Image(camera_targets.floor_target.clone().into()),
+                target: RenderTarget::Image(camera_targets.floor_target.clone().unwrap().into()),
                 ..default()
             },
             projection.clone(),
@@ -836,7 +838,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                target: RenderTarget::Image(camera_targets.walls_target.clone().into()),
+                target: RenderTarget::Image(camera_targets.walls_target.clone().unwrap().into()),
                 ..default()
             },
             projection.clone(),
@@ -849,7 +851,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                target: RenderTarget::Image(camera_targets.objects_target.clone().into()),
+                target: RenderTarget::Image(camera_targets.objects_target.clone().unwrap().into()),
                 ..default()
             },
             projection,
@@ -960,5 +962,16 @@ fn system_camera_zoom(
             }
             _ => continue, // Skip if not orthographic projection
         }
+    }
+}
+
+fn toggle_camera_viewer(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut viewer_state: ResMut<CameraViewerState>,
+) {
+    // Press 'V' key to toggle camera viewer
+    if keyboard.just_pressed(KeyCode::KeyV) {
+        viewer_state.show_window = !viewer_state.show_window;
+        println!("Camera viewer toggled: {}", viewer_state.show_window);
     }
 }

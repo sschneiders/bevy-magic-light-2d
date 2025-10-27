@@ -1,32 +1,40 @@
-
+use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
-use bevy::render::view::RenderLayers;
+use bevy_egui::EguiPrimaryContextPass;
 use bevy_inspector_egui::bevy_egui::{egui, EguiContexts, EguiUserTextures};
 use log::info;
 
 use crate::gi::compositing::CameraTargets;
 use crate::gi::render_layer::{
-    CAMERA_LAYER_FLOOR, CAMERA_LAYER_OBJECTS, CAMERA_LAYER_WALLS, CAMERA_LAYER_POST_PROCESSING,
     ALL_LAYERS,
+    CAMERA_LAYER_FLOOR,
+    CAMERA_LAYER_OBJECTS,
+    CAMERA_LAYER_POST_PROCESSING,
+    CAMERA_LAYER_WALLS,
 };
+use crate::prelude::setup_post_processing_camera;
 
 #[derive(Resource)]
-pub struct CameraViewerState {
+pub struct CameraViewerState
+{
     pub selected_camera: CameraType,
-    pub show_window: bool,
+    pub show_window:     bool,
 }
 
-impl Default for CameraViewerState {
-    fn default() -> Self {
+impl Default for CameraViewerState
+{
+    fn default() -> Self
+    {
         Self {
             selected_camera: CameraType::Floor,
-            show_window: false,
+            show_window:     false,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CameraType {
+pub enum CameraType
+{
     Floor,
     Walls,
     Objects,
@@ -34,8 +42,10 @@ pub enum CameraType {
     Combined,
 }
 
-impl CameraType {
-    pub fn all_values() -> Vec<Self> {
+impl CameraType
+{
+    pub fn all_values() -> Vec<Self>
+    {
         vec![
             Self::Floor,
             Self::Walls,
@@ -45,7 +55,8 @@ impl CameraType {
         ]
     }
 
-    pub fn display_name(&self) -> &'static str {
+    pub fn display_name(&self) -> &'static str
+    {
         match self {
             Self::Floor => "Floor Layer",
             Self::Walls => "Walls Layer",
@@ -55,12 +66,13 @@ impl CameraType {
         }
     }
 
-    pub fn layers(&self) -> RenderLayers {
+    pub fn layers(&self) -> RenderLayers
+    {
         match self {
-            Self::Floor => RenderLayers::from_layers(CAMERA_LAYER_FLOOR),
-            Self::Walls => RenderLayers::from_layers(CAMERA_LAYER_WALLS),
-            Self::Objects => RenderLayers::from_layers(CAMERA_LAYER_OBJECTS),
-            Self::PostProcessing => RenderLayers::from_layers(CAMERA_LAYER_POST_PROCESSING),
+            Self::Floor => RenderLayers::layer(CAMERA_LAYER_FLOOR),
+            Self::Walls => RenderLayers::layer(CAMERA_LAYER_WALLS),
+            Self::Objects => RenderLayers::layer(CAMERA_LAYER_OBJECTS),
+            Self::PostProcessing => RenderLayers::layer(CAMERA_LAYER_POST_PROCESSING),
             Self::Combined => RenderLayers::from_layers(ALL_LAYERS),
         }
     }
@@ -68,25 +80,31 @@ impl CameraType {
 
 pub struct CameraViewerPlugin;
 
-impl Plugin for CameraViewerPlugin {
-    fn build(&self, app: &mut App) {
+impl Plugin for CameraViewerPlugin
+{
+    fn build(&self, app: &mut App)
+    {
         app.init_resource::<CameraViewerState>()
-            .add_systems(Update, camera_viewer_ui_system)
-            .add_systems(Startup, register_render_target_textures);
+            .add_systems(EguiPrimaryContextPass, camera_viewer_ui_system)
+            .add_systems(Update, register_render_target_textures.run_if(resource_changed::<CameraTargets>));
     }
 }
 
 fn register_render_target_textures(
     camera_targets: Res<CameraTargets>,
-    mut egui_user_textures: ResMut<EguiUserTextures>,
+    mut egui_user_textures: EguiContexts,
 ) {
-    info!("Registering render target textures with egui");
-    
-    egui_user_textures.add_image(camera_targets.floor_target.clone());
-    egui_user_textures.add_image(camera_targets.walls_target.clone());
-    egui_user_textures.add_image(camera_targets.objects_target.clone());
-    
-    info!("Render target textures registered");
+    info!("Registering render target textures with egui...");
+
+    egui_user_textures.add_image(bevy_egui::EguiTextureHandle::Strong(camera_targets.floor_target.clone().unwrap()));
+    egui_user_textures.add_image(bevy_egui::EguiTextureHandle::Strong(
+        camera_targets.walls_target.clone().unwrap(),
+    ));
+    egui_user_textures.add_image(bevy_egui::EguiTextureHandle::Strong(
+        camera_targets.objects_target.clone().unwrap(),
+    ));
+
+    info!("Done Render target textures registered with egui!");
 }
 
 fn camera_viewer_ui_system(
@@ -94,14 +112,23 @@ fn camera_viewer_ui_system(
     camera_targets: Res<CameraTargets>,
     mut viewer_state: ResMut<CameraViewerState>,
     images: Res<Assets<Image>>,
-) {
+)
+{
+    // Check texture IDs before the window to avoid borrowing issues
+    let floor_texture_id = egui_contexts.image_id(camera_targets.floor_target.as_ref().unwrap());
+    let walls_texture_id = egui_contexts.image_id(camera_targets.walls_target.as_ref().unwrap());
+    let objects_texture_id = egui_contexts.image_id(camera_targets.objects_target.as_ref().unwrap());
+
+    let Ok(ctx) = egui_contexts.ctx_mut() else {
+        return;
+    };
     if !viewer_state.show_window {
-        // Show a more prominent toggle button 
+        // Show a more prominent toggle button
         egui::Window::new("📷 Camera Viewer")
             .collapsible(false)
             .resizable(false)
             .default_pos([10.0, 50.0])
-            .show(egui_contexts.ctx_mut(), |ui| {
+            .show(ctx, |ui| {
                 ui.heading("Camera Viewer");
                 ui.separator();
                 ui.label("Press 'V' or click the button below to open the camera viewer");
@@ -117,40 +144,38 @@ fn camera_viewer_ui_system(
         return;
     }
 
-    // Check texture IDs before the window to avoid borrowing issues
-    let floor_texture_id = egui_contexts.image_id(&camera_targets.floor_target);
-    let walls_texture_id = egui_contexts.image_id(&camera_targets.walls_target);
-    let objects_texture_id = egui_contexts.image_id(&camera_targets.objects_target);
-
     egui::Window::new("📷 Camera Viewer")
         .collapsible(true)
         .resizable(true)
         .default_size([450.0, 650.0])
         .default_pos([50.0, 80.0])
-        .show(egui_contexts.ctx_mut(), |ui| {
+        .show(ctx, |ui| {
             ui.heading("Render Target Viewer");
-            
+
             // Camera selection dropdown
             ui.horizontal(|ui| {
                 ui.label("Camera:");
                 let mut selected = viewer_state.selected_camera.clone();
                 let mut changed = false;
-                
+
                 egui::ComboBox::from_label("")
                     .selected_text(selected.display_name())
                     .width(250.0)
                     .show_ui(ui, |ui| {
                         for camera_type in CameraType::all_values() {
-                            if ui.selectable_label(
-                                selected == camera_type,
-                                camera_type.display_name()
-                            ).clicked() {
+                            if ui
+                                .selectable_label(
+                                    selected == camera_type,
+                                    camera_type.display_name(),
+                                )
+                                .clicked()
+                            {
                                 selected = camera_type;
                                 changed = true;
                             }
                         }
                     });
-                
+
                 if changed {
                     viewer_state.selected_camera = selected;
                 }
@@ -160,27 +185,66 @@ fn camera_viewer_ui_system(
 
             // Display the selected camera's render target
             match viewer_state.selected_camera {
-                CameraType::Floor => display_render_target(ui, &camera_targets.floor_target, &images, "Floor Layer", floor_texture_id),
-                CameraType::Walls => display_render_target(ui, &camera_targets.walls_target, &images, "Walls Layer", walls_texture_id),
-                CameraType::Objects => display_render_target(ui, &camera_targets.objects_target, &images, "Objects Layer", objects_texture_id),
+                CameraType::Floor => display_render_target(
+                    ui,
+                    &camera_targets.floor_target,
+                    &images,
+                    "Floor Layer",
+                    floor_texture_id,
+                ),
+                CameraType::Walls => display_render_target(
+                    ui,
+                    &camera_targets.walls_target,
+                    &images,
+                    "Walls Layer",
+                    walls_texture_id,
+                ),
+                CameraType::Objects => display_render_target(
+                    ui,
+                    &camera_targets.objects_target,
+                    &images,
+                    "Objects Layer",
+                    objects_texture_id,
+                ),
                 CameraType::PostProcessing => {
                     ui.label("Post Processing View");
                     ui.label("(This is what you see in the main window)");
                     ui.label("The post processing combines all layers with lighting effects");
-                },
+                }
                 CameraType::Combined => {
                     ui.label("Combined View");
                     ui.label("Shows all render targets side by side:");
                     ui.separator();
-                    
+
                     // Create a grid layout for all cameras
-                    egui::Grid::new("camera_grid").num_columns(2).spacing([10.0, 10.0]).show(ui, |ui| {
-                        display_render_target_in_grid(ui, &camera_targets.floor_target, &images, "Floor", floor_texture_id);
-                        display_render_target_in_grid(ui, &camera_targets.walls_target, &images, "Walls", walls_texture_id);
-                        display_render_target_in_grid(ui, &camera_targets.objects_target, &images, "Objects", objects_texture_id);
-                        ui.end_row();
-                    });
-                },
+                    egui::Grid::new("camera_grid")
+                        .num_columns(2)
+                        .spacing([10.0, 10.0])
+                        .show(ui, |ui| {
+                            display_render_target_in_grid(
+                                ui,
+                                &camera_targets.floor_target,
+                                &images,
+                                "Floor",
+                                floor_texture_id,
+                            );
+                            display_render_target_in_grid(
+                                ui,
+                                &camera_targets.walls_target,
+                                &images,
+                                "Walls",
+                                walls_texture_id,
+                            );
+                            display_render_target_in_grid(
+                                ui,
+                                &camera_targets.objects_target,
+                                &images,
+                                "Objects",
+                                objects_texture_id,
+                            );
+                            ui.end_row();
+                        });
+                }
             }
 
             ui.separator();
@@ -203,22 +267,28 @@ fn camera_viewer_ui_system(
 
 fn display_render_target(
     ui: &mut egui::Ui,
-    target: &bevy::asset::Handle<Image>,
+    target: &Option<Handle<Image>>,
     images: &Assets<Image>,
     label: &str,
     texture_id: Option<egui::TextureId>,
-) {
+)
+{
+    let Some(target) = target else {
+        error!("display_render_target called with no target");
+        return;
+    };
+
     ui.label(label);
-    
+
     if let Some(image) = images.get(target) {
         let size = image.size();
-        
+
         // Create a simple placeholder visualization
         let available_size = ui.available_size();
         let aspect_ratio = size.x as f32 / size.y as f32;
         let display_height = available_size.y.min(400.0);
         let display_width = display_height * aspect_ratio;
-        
+
         // Try to display the actual render target image using egui texture system
         match texture_id {
             Some(texture_id) => {
@@ -227,7 +297,7 @@ fn display_render_target(
                     texture_id,
                     egui::Vec2::new(display_width, display_height),
                 ));
-                
+
                 // Show some debug info
                 if let Some(data) = &image.data {
                     let data_size = data.len();
@@ -237,11 +307,11 @@ fn display_render_target(
                 } else {
                     ui.label("✅ Render target loaded (no CPU data access)");
                 }
-            },
+            }
             None => {
                 // Fallback to visualization if texture not registered with egui
                 ui.label("⚠️ Texture not registered with egui");
-                
+
                 if let Some(image) = images.get(target) {
                     if let Some(data) = &image.data {
                         let data_size = data.len();
@@ -250,13 +320,13 @@ fn display_render_target(
                     } else {
                         ui.label("Has handle but no CPU data");
                     }
-                    
+
                     // Simple colored rectangle to indicate this render target exists
                     let (rect, _) = ui.allocate_exact_size(
                         egui::Vec2::new(display_width, display_height),
                         egui::Sense::hover(),
                     );
-                    
+
                     // Use different colors for different render targets
                     let color = match label {
                         "Floor Layer" => egui::Color32::from_rgb(100, 150, 100),
@@ -264,13 +334,10 @@ fn display_render_target(
                         "Objects Layer" => egui::Color32::from_rgb(100, 100, 150),
                         _ => egui::Color32::from_rgb(120, 120, 120),
                     };
-                    
-                    ui.painter().rect_filled(
-                        rect,
-                        egui::Rounding::same(4),
-                        color,
-                    );
-                    
+
+                    ui.painter()
+                        .rect_filled(rect, egui::Rounding::same(4), color);
+
                     // Add text overlay
                     ui.painter().text(
                         rect.center(),
@@ -284,7 +351,7 @@ fn display_render_target(
                 }
             }
         }
-        
+
         ui.label(format!("Size: {}×{}", size.x, size.y));
     } else {
         ui.label("Render target not available");
@@ -293,22 +360,27 @@ fn display_render_target(
 
 fn display_render_target_in_grid(
     ui: &mut egui::Ui,
-    target: &bevy::asset::Handle<Image>,
+    target: &Option<Handle<Image>>,
     images: &Assets<Image>,
     label: &str,
     texture_id: Option<egui::TextureId>,
-) {
+)
+{
+    let Some(ref target) = target else {
+        error!("display_render_target_in_grid no target");
+        return;
+    };
     ui.label(label);
-    
+
     if let Some(image) = images.get(target) {
         let size = image.size();
-        
+
         // Create a small placeholder in the grid
         let display_size = 120.0;
         let aspect_ratio = size.x as f32 / size.y as f32;
         let display_height = display_size;
         let display_width = display_height * aspect_ratio;
-        
+
         // Try to display actual render target in grid
         match texture_id {
             Some(texture_id) => {
@@ -317,7 +389,7 @@ fn display_render_target_in_grid(
                     texture_id,
                     egui::Vec2::new(display_width, display_height),
                 ));
-            },
+            }
             None => {
                 // Fallback to visualization if texture not registered with egui
                 match images.get(target) {
@@ -325,7 +397,7 @@ fn display_render_target_in_grid(
                         if let Some(data) = &image.data {
                             let data_size = data.len();
                             let pixel_count = data_size / 4;
-                            
+
                             // Use different colors for different render targets
                             let color = match label {
                                 "Floor" => egui::Color32::from_rgb(100, 150, 100),
@@ -333,18 +405,15 @@ fn display_render_target_in_grid(
                                 "Objects" => egui::Color32::from_rgb(100, 100, 150),
                                 _ => egui::Color32::from_rgb(120, 120, 120),
                             };
-                            
+
                             let (rect, _) = ui.allocate_exact_size(
                                 egui::Vec2::new(display_width, display_height),
                                 egui::Sense::hover(),
                             );
-                            
-                            ui.painter().rect_filled(
-                                rect,
-                                egui::Rounding::same(4),
-                                color,
-                            );
-                            
+
+                            ui.painter()
+                                .rect_filled(rect, egui::Rounding::same(4), color);
+
                             // Add text overlay
                             ui.painter().text(
                                 rect.center(),
@@ -354,7 +423,7 @@ fn display_render_target_in_grid(
                                 egui::Color32::WHITE,
                             );
                         }
-                    },
+                    }
                     _ => {
                         ui.label("Not avail");
                     }

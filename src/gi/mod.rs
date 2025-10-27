@@ -1,14 +1,15 @@
-use bevy::shader::load_shader_library;
 use bevy::prelude::*;
 use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderContext;
-use bevy::render::{Render, RenderApp, RenderSystems, RenderStartup};
+use bevy::render::{Render, RenderApp, RenderStartup, RenderSystems};
+use bevy::shader::load_shader_library;
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
+use bevy_egui::EguiPrimaryContextPass;
+
 use self::pipeline::GiTargets;
-use crate::camera_viewer::{setup_camera_viewer, camera_viewer_window_system};
 use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::{
@@ -71,9 +72,7 @@ impl Plugin for BevyMagicLight2DPlugin
             )
                 .chain(),
         )
-        .add_systems(Startup, setup_camera_viewer)
-        .add_systems(PreUpdate, handle_window_resize)
-        .add_systems(Last, camera_viewer_window_system);
+        .add_systems(PreUpdate, handle_window_resize);
 
         load_shader_library!(app, "shaders/gi_attenuation.wgsl");
         load_shader_library!(app, "shaders/gi_camera.wgsl");
@@ -91,11 +90,15 @@ impl Plugin for BevyMagicLight2DPlugin
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .add_systems(ExtractSchedule, system_extract_pipeline_assets)
-            .add_systems(RenderStartup, (
-                init_light_pass_pipeline,
-                init_light_pass_pipeline_assets,
-                init_computed_target_sizes,
-            ).chain())
+            .add_systems(
+                RenderStartup,
+                (
+                    init_light_pass_pipeline,
+                    init_light_pass_pipeline_assets,
+                    init_computed_target_sizes,
+                )
+                    .chain(),
+            )
             .add_systems(
                 Render,
                 (
@@ -160,7 +163,7 @@ pub fn handle_window_resize(
         );
 
         *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
-        *res_camera_targets = CameraTargets::create(&mut assets_image, &res_target_sizes);
+        res_camera_targets.update_handles(&mut assets_image, &res_target_sizes);
     }
 }
 
@@ -263,14 +266,17 @@ impl render_graph::Node for LightPass2DNode
 }
 
 // RenderStartup initialization functions for Bevy 0.17
-fn init_light_pass_pipeline(mut commands: Commands) {
+fn init_light_pass_pipeline(mut commands: Commands)
+{
     commands.init_resource::<LightPassPipeline>();
 }
 
-fn init_light_pass_pipeline_assets(mut commands: Commands) {
+fn init_light_pass_pipeline_assets(mut commands: Commands)
+{
     commands.init_resource::<LightPassPipelineAssets>();
 }
 
-fn init_computed_target_sizes(mut commands: Commands) {
+fn init_computed_target_sizes(mut commands: Commands)
+{
     commands.init_resource::<ComputedTargetSizes>();
 }

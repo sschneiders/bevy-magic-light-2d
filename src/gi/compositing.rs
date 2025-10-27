@@ -1,7 +1,9 @@
+use bevy::camera::visibility::RenderLayers;
+use bevy::mesh::MeshVertexBufferLayoutRef;
+use bevy::pbr::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
-use bevy::mesh::MeshVertexBufferLayoutRef;
-use bevy::shader::{ShaderDefVal, ShaderRef};
 use bevy::render::render_resource::{
     AsBindGroup,
     Extent3d,
@@ -12,10 +14,9 @@ use bevy::render::render_resource::{
     TextureFormat,
     TextureUsages,
 };
-use bevy::camera::visibility::RenderLayers;
-use bevy::pbr::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
+use bevy::shader::{ShaderDefVal, ShaderRef};
 use bevy::sprite_render::{Material2d, Material2dKey};
-use bevy::post_process::bloom::Bloom;
+
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
 use crate::gi::pipeline::GiTargetsWrapper;
 use crate::gi::render_layer::CAMERA_LAYER_POST_PROCESSING;
@@ -49,9 +50,9 @@ impl PostProcessingMaterial
     pub fn create(camera_targets: &CameraTargets, gi_targets_wrapper: &GiTargetsWrapper) -> Self
     {
         Self {
-            floor_image:      camera_targets.floor_target.clone(),
-            walls_image:      camera_targets.walls_target.clone(),
-            objects_image:    camera_targets.objects_target.clone(),
+            floor_image:      camera_targets.floor_target.clone().unwrap(),
+            walls_image:      camera_targets.walls_target.clone().unwrap(),
+            objects_image:    camera_targets.objects_target.clone().unwrap(),
             irradiance_image: gi_targets_wrapper
                 .targets
                 .as_ref()
@@ -65,14 +66,14 @@ impl PostProcessingMaterial
 #[derive(Resource, Default)]
 pub struct CameraTargets
 {
-    pub floor_target:   Handle<Image>,
-    pub walls_target:   Handle<Image>,
-    pub objects_target: Handle<Image>,
+    pub floor_target:   Option<Handle<Image>>,
+    pub walls_target:   Option<Handle<Image>>,
+    pub objects_target: Option<Handle<Image>>,
 }
 
 impl CameraTargets
 {
-    pub fn create(images: &mut Assets<Image>, sizes: &ComputedTargetSizes) -> Self
+    pub fn update_handles(&mut self, images: &mut Assets<Image>, sizes: &ComputedTargetSizes)
     {
         let target_size = Extent3d {
             width: sizes.primary_target_usize.x,
@@ -132,15 +133,28 @@ impl CameraTargets
         walls_image.resize(target_size);
         objects_image.resize(target_size);
 
-        let floor_image_handle = images.add(floor_image);
-        let walls_image_handle = images.add(walls_image);
-        let objects_image_handle = images.add(objects_image);
-
-        Self {
-            floor_target:   floor_image_handle,
-            walls_target:   walls_image_handle,
-            objects_target: objects_image_handle,
+        if let Some(ref floor_target) = self.floor_target {
+            images
+                .insert(floor_target, floor_image)
+                .expect("floor image handle updating should work everytime");
+        } else {
+            self.floor_target = Some(images.add(floor_image));
         }
+        if let Some(ref walls_target) = self.walls_target {
+            images
+                .insert(walls_target, walls_image)
+                .expect("walls image handle updating should work everytime");
+        } else {
+            self.walls_target = Some(images.add(walls_image));
+        }
+        if let Some(ref objects_target) = self.objects_target {
+            images
+                .insert(objects_target, objects_image)
+                .expect("object image handle updating should work everytime");
+        } else {
+            self.objects_target = Some(images.add(objects_image));
+        }
+        info!("Updating Camera Targets");
     }
 }
 
@@ -193,7 +207,7 @@ pub fn setup_post_processing_camera(
 
     let _ = meshes.insert(POST_PROCESSING_RECT.id(), quad);
 
-    *camera_targets = CameraTargets::create(&mut images, &target_sizes);
+    camera_targets.update_handles(&mut images, &target_sizes);
 
     let material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
     let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), material);
