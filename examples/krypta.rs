@@ -56,7 +56,6 @@ fn main()
                     },
                 }),
             BevyMagicLight2DPlugin,
-            EguiPlugin::default(),
             ResourceInspectorPlugin::<BevyMagicLight2DSettings>::new(),
         ))
         .insert_resource(BevyMagicLight2DSettings {
