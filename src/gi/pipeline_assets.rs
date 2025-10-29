@@ -237,6 +237,12 @@ pub fn system_extract_pipeline_assets(
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose =
                 camera_global_transform.translation().truncate();
+                
+            // Reset frame counter during zoom to break temporal sampling completely
+            if projection_change > 0.5 {
+                *gpu_frame_counter = 0;
+                log::debug!("Reset frame counter due to temporal reset");
+            }
         } else {
             log::warn!("Failed to get camera");
             let camera_params = gpu_pipeline_assets.camera_params.get_mut();
