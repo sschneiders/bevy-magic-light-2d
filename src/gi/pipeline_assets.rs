@@ -99,6 +99,7 @@ pub fn system_extract_pipeline_assets(
     mut gpu_frame_counter:      Local<i32>,
     mut prev_view_proj:         Local<Mat4>,
     mut prev_camera_scale:      Local<f32>,
+    mut prev_camera_translation: Local<Vec3>,
 ) {
     let light_pass_config = &res_light_settings.light_pass_params;
 
@@ -106,8 +107,9 @@ pub fn system_extract_pipeline_assets(
 
     // Initialize previous camera tracking if this is the first frame
     if !prev_view_proj.is_finite() && *prev_camera_scale == 0.0 {
-        if let Ok((camera, _)) = query_camera.single() {
+        if let Ok((camera, camera_global_transform)) = query_camera.single() {
             *prev_view_proj = camera.clip_from_view(); // Just use the projection for initialization
+            *prev_camera_translation = camera_global_transform.translation();
             *prev_camera_scale = camera.clip_from_view().col(0).x;
         }
     }
@@ -186,12 +188,19 @@ pub fn system_extract_pipeline_assets(
                 // Calculate maximum absolute difference across all matrix elements
                 let max_projection_diff = view_proj_diff.to_cols_array().into_iter().fold(0.0f32, |acc, x| acc.max(x));
                 
-                // Threshold for detecting zoom changes (adjustable)
-                let zoom_threshold = 0.01;
-                let projection_threshold = 0.1;
+                // Much more sensitive thresholds for detecting zoom changes
+                let zoom_threshold = 0.001;  // Very sensitive - 0.1% scale change
+                let projection_threshold = 0.01;  // More sensitive projection changes
                 
-                // If projection or scale changed significantly, trigger temporal reset
-                if scale_diff > zoom_threshold {
+                // Detect any camera movement or scaling
+                let camera_movement = (camera_global_transform.translation() - *prev_camera_translation).length_squared();
+                let camera_movement_threshold = 0.01; // Sensitive to movement as well
+                
+                // If camera moved significantly or projection changed, trigger temporal reset
+                if camera_movement > camera_movement_threshold {
+                    log::debug!("Camera movement detected: movement={}, triggering temporal reset", camera_movement.sqrt());
+                    1.0 // Reset temporal accumulation
+                } else if scale_diff > zoom_threshold {
                     log::debug!("Zoom change detected: scale_diff={}, triggering temporal reset", scale_diff);
                     1.0 // Reset temporal accumulation
                 } else if max_projection_diff > projection_threshold {
@@ -207,6 +216,7 @@ pub fn system_extract_pipeline_assets(
             // Update previous frame values
             *prev_view_proj = current_view_proj;
             *prev_camera_scale = current_scale;
+            *prev_camera_translation = camera_global_transform.translation();
 
             camera_params.view_proj = current_view_proj;
             camera_params.inverse_view_proj = view * inverse_projection;
