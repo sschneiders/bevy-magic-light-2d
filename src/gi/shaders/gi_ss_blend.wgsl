@@ -185,12 +185,7 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         );
 
         // Apply temporal reset during zoom changes
-        let sample_weight = if (camera_params.temporal_reset > 0.5) {
-            // During zoom changes, reduce weight of temporal samples
-            r.weight * 0.1 // Significantly reduce temporal contribution
-        } else {
-            r.weight
-        };
+        let sample_weight = select(r.weight, r.weight * 0.1, camera_params.temporal_reset > 0.5);
 
         // If probe is active, accumulate irradiance and weight.
         if sample_weight > 0.0 {
