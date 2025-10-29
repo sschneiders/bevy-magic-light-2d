@@ -25,6 +25,7 @@ bevy = { version = "0.17.*", default-features = true, features = [
     "bevy_text"
 ]}
 bevy-inspector-egui = { version = "0.35.*", optional = true }
+bevy_egui = "0.38.*"
 log = "0.4.*"
 rand = "0.9.*"
 

@@ -1,5 +1,5 @@
-use bevy::image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::prelude::*;
+use bevy::image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::asset::RenderAssetUsages;
 use bevy::render::extract_resource::ExtractResource;
 use bevy::render::render_asset::RenderAssets;

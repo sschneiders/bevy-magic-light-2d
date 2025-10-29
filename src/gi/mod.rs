@@ -1,12 +1,15 @@
-use bevy::asset::embedded_asset;
 use bevy::prelude::*;
 use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::{self, RenderGraph, RenderLabel};
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderContext;
-use bevy::render::{Render, RenderApp, RenderSystems};
+use bevy::render::{Render, RenderApp, RenderStartup, RenderSystems};
+use bevy::shader::load_shader_library;
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
+
+
+
 use self::pipeline::GiTargets;
 use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial, PostProcessingMaterialState, refresh_post_processing_material_on_gi_ready};
 use crate::gi::constants::{POST_PROCESSING_MATERIAL, POST_PROCESSING_RECT};
@@ -32,6 +35,7 @@ mod pipeline;
 mod pipeline_assets;
 mod types_gpu;
 
+pub mod camera_viewer;
 pub mod compositing;
 pub mod render_layer;
 pub mod resource;
@@ -52,6 +56,7 @@ impl Plugin for BevyMagicLight2DPlugin
         app.add_plugins((
             ExtractResourcePlugin::<GiTargetsWrapper>::default(),
             Material2dPlugin::<PostProcessingMaterial>::default(),
+            bevy_egui::EguiPlugin::default(),
         ))
         .init_resource::<CameraTargets>()
         .init_resource::<PostProcessingMaterialState>()
@@ -70,24 +75,43 @@ impl Plugin for BevyMagicLight2DPlugin
                 .chain(),
         )
         .add_systems(PreUpdate, handle_window_resize)
-        .add_systems(Update, refresh_post_processing_material_on_gi_ready);
+        .add_systems(Update, refresh_post_processing_material_on_gi_ready)
+        .add_systems(PostUpdate, 
+            (
+                update_post_processing_material
+                    .run_if(resource_changed::<GiTargetsWrapper>)
+                    .after(handle_window_resize),
+                update_post_processing_material
+                    .run_if(resource_changed::<CameraTargets>)
+                    .after(handle_window_resize),
+            )
+        );
 
-        embedded_asset!(app, "shaders/gi_attenuation.wgsl");
-        embedded_asset!(app, "shaders/gi_camera.wgsl");
-        embedded_asset!(app, "shaders/gi_halton.wgsl");
-        embedded_asset!(app, "shaders/gi_math.wgsl");
-        embedded_asset!(app, "shaders/gi_post_processing.wgsl");
-        embedded_asset!(app, "shaders/gi_raymarch.wgsl");
-        embedded_asset!(app, "shaders/gi_sdf.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_blend.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_bounce.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_filter.wgsl");
-        embedded_asset!(app, "shaders/gi_ss_probe.wgsl");
-        embedded_asset!(app, "shaders/gi_types.wgsl");
+        load_shader_library!(app, "shaders/gi_attenuation.wgsl");
+        load_shader_library!(app, "shaders/gi_camera.wgsl");
+        load_shader_library!(app, "shaders/gi_halton.wgsl");
+        load_shader_library!(app, "shaders/gi_math.wgsl");
+        load_shader_library!(app, "shaders/gi_post_processing.wgsl");
+        load_shader_library!(app, "shaders/gi_raymarch.wgsl");
+        load_shader_library!(app, "shaders/gi_sdf.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_blend.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_bounce.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_filter.wgsl");
+        load_shader_library!(app, "shaders/gi_ss_probe.wgsl");
+        load_shader_library!(app, "shaders/gi_types.wgsl");
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .add_systems(ExtractSchedule, system_extract_pipeline_assets)
+            .add_systems(
+                RenderStartup,
+                (
+                    init_light_pass_pipeline,
+                    init_light_pass_pipeline_assets,
+                    init_computed_target_sizes,
+                )
+                    .chain(),
+            )
             .add_systems(
                 Render,
                 (
@@ -102,15 +126,6 @@ impl Plugin for BevyMagicLight2DPlugin
             LightPass2DRenderLabel,
             bevy::render::graph::CameraDriverLabel,
         )
-    }
-
-    fn finish(&self, app: &mut App)
-    {
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<LightPassPipeline>()
-            .init_resource::<LightPassPipelineAssets>()
-            .init_resource::<ComputedTargetSizes>();
     }
 }
 
@@ -155,13 +170,16 @@ pub fn handle_window_resize(
             )),
         );
 
+        // IMPORTANT: Update GI targets and camera targets BEFORE recreating the material
+        // to ensure the post-processing material references the correct texture handles
+        *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
+        res_camera_targets.update_handles(&mut assets_image, &res_target_sizes);
+
+        // Now recreate the post-processing material with updated texture handles
         let _ = assets_material.insert(
             POST_PROCESSING_MATERIAL.id(),
             PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
         );
-
-        *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
-        *res_camera_targets = CameraTargets::create(&mut assets_image, &res_target_sizes);
     }
 }
 
@@ -307,4 +325,48 @@ impl render_graph::Node for LightPass2DNode
 
         Ok(())
     }
+}
+
+// RenderStartup initialization functions for Bevy 0.17
+fn init_light_pass_pipeline(mut commands: Commands)
+{
+    commands.init_resource::<LightPassPipeline>();
+}
+
+fn init_light_pass_pipeline_assets(mut commands: Commands)
+{
+    commands.init_resource::<LightPassPipelineAssets>();
+}
+
+fn init_computed_target_sizes(mut commands: Commands)
+{
+    commands.init_resource::<ComputedTargetSizes>();
+}
+
+/// Updates the post-processing material whenever GI targets are changed
+/// This ensures the material always references the correct texture handles
+fn update_post_processing_material(
+    mut materials: ResMut<Assets<PostProcessingMaterial>>,
+    camera_targets: Res<CameraTargets>,
+    gi_targets_wrapper: Res<GiTargetsWrapper>,
+) {
+    log::debug!("Updating post-processing material due to GI targets change");
+    
+    // Ensure GI targets are initialized before updating material
+    if gi_targets_wrapper.targets.is_none() {
+        log::warn!("GI targets not initialized, skipping material update");
+        return;
+    }
+    
+    // Ensure camera targets are initialized
+    if camera_targets.floor_target.is_none() || camera_targets.walls_target.is_none() || camera_targets.objects_target.is_none() {
+        log::warn!("Camera targets not fully initialized, skipping material update");
+        return;
+    }
+    
+    // Recreate the material with updated texture handles
+    let updated_material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
+    let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), updated_material);
+    
+    log::debug!("Post-processing material updated successfully");
 }
