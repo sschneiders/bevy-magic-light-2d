@@ -7,7 +7,8 @@ use bevy::render::{Render, RenderApp, RenderStartup, RenderSystems};
 use bevy::shader::load_shader_library;
 use bevy::sprite_render::Material2dPlugin;
 use bevy::window::{PrimaryWindow, WindowResized};
-use bevy_egui::EguiPrimaryContextPass;
+
+
 
 use self::pipeline::GiTargets;
 use crate::gi::compositing::{setup_post_processing_camera, CameraTargets, PostProcessingMaterial};
@@ -72,7 +73,17 @@ impl Plugin for BevyMagicLight2DPlugin
             )
                 .chain(),
         )
-        .add_systems(PreUpdate, handle_window_resize);
+        .add_systems(PreUpdate, handle_window_resize)
+        .add_systems(PostUpdate, 
+            (
+                update_post_processing_material
+                    .run_if(resource_changed::<GiTargetsWrapper>)
+                    .after(handle_window_resize),
+                update_post_processing_material
+                    .run_if(resource_changed::<CameraTargets>)
+                    .after(handle_window_resize),
+            )
+        );
 
         load_shader_library!(app, "shaders/gi_attenuation.wgsl");
         load_shader_library!(app, "shaders/gi_camera.wgsl");
@@ -157,13 +168,16 @@ pub fn handle_window_resize(
             )),
         );
 
+        // IMPORTANT: Update GI targets and camera targets BEFORE recreating the material
+        // to ensure the post-processing material references the correct texture handles
+        *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
+        res_camera_targets.update_handles(&mut assets_image, &res_target_sizes);
+
+        // Now recreate the post-processing material with updated texture handles
         let _ = assets_material.insert(
             POST_PROCESSING_MATERIAL.id(),
             PostProcessingMaterial::create(&res_camera_targets, &res_gi_targets_wrapper),
         );
-
-        *res_gi_targets_wrapper = GiTargetsWrapper{targets: Some(GiTargets::create(&mut assets_image, &res_target_sizes))};
-        res_camera_targets.update_handles(&mut assets_image, &res_target_sizes);
     }
 }
 
@@ -279,4 +293,32 @@ fn init_light_pass_pipeline_assets(mut commands: Commands)
 fn init_computed_target_sizes(mut commands: Commands)
 {
     commands.init_resource::<ComputedTargetSizes>();
+}
+
+/// Updates the post-processing material whenever GI targets are changed
+/// This ensures the material always references the correct texture handles
+fn update_post_processing_material(
+    mut materials: ResMut<Assets<PostProcessingMaterial>>,
+    camera_targets: Res<CameraTargets>,
+    gi_targets_wrapper: Res<GiTargetsWrapper>,
+) {
+    log::debug!("Updating post-processing material due to GI targets change");
+    
+    // Ensure GI targets are initialized before updating material
+    if gi_targets_wrapper.targets.is_none() {
+        log::warn!("GI targets not initialized, skipping material update");
+        return;
+    }
+    
+    // Ensure camera targets are initialized
+    if camera_targets.floor_target.is_none() || camera_targets.walls_target.is_none() || camera_targets.objects_target.is_none() {
+        log::warn!("Camera targets not fully initialized, skipping material update");
+        return;
+    }
+    
+    // Recreate the material with updated texture handles
+    let updated_material = PostProcessingMaterial::create(&camera_targets, &gi_targets_wrapper);
+    let _ = materials.insert(POST_PROCESSING_MATERIAL.id(), updated_material);
+    
+    log::debug!("Post-processing material updated successfully");
 }

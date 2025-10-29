@@ -49,14 +49,29 @@ impl PostProcessingMaterial
 {
     pub fn create(camera_targets: &CameraTargets, gi_targets_wrapper: &GiTargetsWrapper) -> Self
     {
+        // Log texture handle information for debugging
+        log::debug!("Creating PostProcessingMaterial with texture handles:");
+        log::debug!("  floor_target: {:?}", camera_targets.floor_target);
+        log::debug!("  walls_target: {:?}", camera_targets.walls_target);
+        log::debug!("  objects_target: {:?}", camera_targets.objects_target);
+        
+        if let Some(ref targets) = gi_targets_wrapper.targets {
+            log::debug!("  ss_filter_target: {:?}", targets.ss_filter_target);
+        } else {
+            log::error!("GI targets not initialized when creating PostProcessingMaterial!");
+        }
+
         Self {
-            floor_image:      camera_targets.floor_target.clone().unwrap(),
-            walls_image:      camera_targets.walls_target.clone().unwrap(),
-            objects_image:    camera_targets.objects_target.clone().unwrap(),
+            floor_image:      camera_targets.floor_target.clone()
+                .expect("Floor target must be initialized"),
+            walls_image:      camera_targets.walls_target.clone()
+                .expect("Walls target must be initialized"),
+            objects_image:    camera_targets.objects_target.clone()
+                .expect("Objects target must be initialized"),
             irradiance_image: gi_targets_wrapper
                 .targets
                 .as_ref()
-                .expect("Targets must be initialized")
+                .expect("GI targets must be initialized")
                 .ss_filter_target
                 .clone(),
         }
@@ -154,7 +169,13 @@ impl CameraTargets
         } else {
             self.objects_target = Some(images.add(objects_image));
         }
-        info!("Updating Camera Targets");
+        
+        // Validate that all targets are properly initialized
+        if let (Some(floor), Some(walls), Some(objects)) = (&self.floor_target, &self.walls_target, &self.objects_target) {
+            log::debug!("Camera targets updated successfully: floor={:?}, walls={:?}, objects={:?}", floor, walls, objects);
+        } else {
+            log::error!("Failed to initialize all camera targets!");
+        }
     }
 }
 

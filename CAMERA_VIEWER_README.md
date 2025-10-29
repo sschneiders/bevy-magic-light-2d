@@ -184,10 +184,39 @@ Potential enhancements for the camera viewer:
 1. **Window Not Appearing**: Ensure `CameraViewerPlugin` is added and `show_window` is true
 2. **Empty Views**: Check that `CameraTargets` resource is properly initialized
 3. **Compilation Errors**: Make sure all required dependencies are included
+4. **Post-Processing Shader Binding Issues**: The post-processing material now automatically updates when texture handles change, but you may need to enable debug logging to see the binding process
 
 ### Debug Tips
 
 - Use `cargo run --example minimal_with_camera_viewer` to test basic functionality
 - Check console output for any error messages
 - Verify that render targets are properly created in your scene setup
+- Enable debug logging to see texture binding information:
+  ```rust
+  use log::LevelFilter;
+  
+  // In your main setup:
+  std::env::set_var("RUST_LOG", "debug");
+  env_logger::init();
+  ```
+
+### Texture Binding Details
+
+The post-processing system uses an `AsBindGroup` material that references:
+- Floor layer render target (`@group(2) @binding(0)`)
+- Walls layer render target (`@group(2) @binding(2)`)
+- Objects layer render target (`@group(2) @binding(4)`)
+- GI irradiance filter target (`@group(2) @binding(6)`)
+
+The system now includes:
+- Automatic material recreation when texture handles change
+- Debug logging to track texture binding state
+- Validation that all targets are properly initialized
+- Proper cleanup during window resize events
+
+If you're experiencing texture binding issues:
+1. Check the console for debug messages about texture handle updates
+2. Ensure GI targets are created before the post-processing material
+3. Verify that all texture handles are properly initialized before rendering
+
 

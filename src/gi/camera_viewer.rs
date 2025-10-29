@@ -1,7 +1,7 @@
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
-use bevy_inspector_egui::bevy_egui::{egui, EguiContexts, EguiUserTextures};
+use bevy_inspector_egui::bevy_egui::{egui, EguiContexts};
 use log::info;
 
 use crate::gi::compositing::CameraTargets;
@@ -12,7 +12,9 @@ use crate::gi::render_layer::{
     CAMERA_LAYER_POST_PROCESSING,
     CAMERA_LAYER_WALLS,
 };
-use crate::prelude::setup_post_processing_camera;
+
+
+
 
 #[derive(Resource)]
 pub struct CameraViewerState
@@ -336,7 +338,7 @@ fn display_render_target(
                     };
 
                     ui.painter()
-                        .rect_filled(rect, egui::Rounding::same(4), color);
+                        .rect_filled(rect, egui::CornerRadius::same(4), color);
 
                     // Add text overlay
                     ui.painter().text(
@@ -396,7 +398,7 @@ fn display_render_target_in_grid(
                     Some(image) => {
                         if let Some(data) = &image.data {
                             let data_size = data.len();
-                            let pixel_count = data_size / 4;
+                            let _pixel_count = data_size / 4;
 
                             // Use different colors for different render targets
                             let color = match label {
@@ -412,7 +414,7 @@ fn display_render_target_in_grid(
                             );
 
                             ui.painter()
-                                .rect_filled(rect, egui::Rounding::same(4), color);
+                                .rect_filled(rect, egui::CornerRadius::same(4), color);
 
                             // Add text overlay
                             ui.painter().text(
