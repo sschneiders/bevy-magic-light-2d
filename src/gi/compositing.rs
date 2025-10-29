@@ -65,13 +65,16 @@ impl PostProcessingMaterial
             })
             .unwrap_or_else(|| {
                 log::warn!("GI targets not yet available for post-processing material, using fallback floor target");
-                camera_targets.floor_target.clone()
+                camera_targets.floor_target.clone().expect("Floor target must be initialized for fallback")
             });
 
         Self {
-            floor_image:      camera_targets.floor_target.clone(),
-            walls_image:      camera_targets.walls_target.clone(),
-            objects_image:    camera_targets.objects_target.clone(),
+            floor_image:      camera_targets.floor_target.clone()
+                .expect("Floor target must be initialized"),
+            walls_image:      camera_targets.walls_target.clone()
+                .expect("Walls target must be initialized"),
+            objects_image:    camera_targets.objects_target.clone()
+                .expect("Objects target must be initialized"),
             irradiance_image,
         }
     }
