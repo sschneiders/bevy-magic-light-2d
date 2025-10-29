@@ -97,10 +97,20 @@ pub fn system_extract_pipeline_assets(
     mut gpu_target_sizes:       ResMut<ComputedTargetSizes>,
     mut gpu_pipeline_assets:    ResMut<LightPassPipelineAssets>,
     mut gpu_frame_counter:      Local<i32>,
+    mut prev_view_proj:         Local<Mat4>,
+    mut prev_camera_scale:      Local<f32>,
 ) {
     let light_pass_config = &res_light_settings.light_pass_params;
 
     *gpu_target_sizes = **res_target_sizes;
+
+    // Initialize previous camera tracking if this is the first frame
+    if !prev_view_proj.is_finite() && *prev_camera_scale == 0.0 {
+        if let Ok((camera, _)) = query_camera.single() {
+            *prev_view_proj = camera.clip_from_view(); // Just use the projection for initialization
+            *prev_camera_scale = camera.clip_from_view().col(0).x;
+        }
+    }
 
     {
         let light_sources = gpu_pipeline_assets.light_sources.get_mut();
@@ -163,8 +173,42 @@ pub fn system_extract_pipeline_assets(
             let inverse_projection = projection.inverse();
             let view = camera_global_transform.to_matrix();
             let inverse_view = view.inverse();
+            
+            let current_view_proj = projection * inverse_view;
+            
+            // Detect camera zoom/projection changes
+            let current_scale = projection.col(0).x; // For orthographic cameras, this represents the zoom level
+            let projection_change = if prev_view_proj.is_finite() {
+                // Check for significant changes in projection matrix
+                let view_proj_diff = (current_view_proj - *prev_view_proj).abs();
+                let scale_diff = (current_scale - *prev_camera_scale).abs();
+                
+                // Calculate maximum absolute difference across all matrix elements
+                let max_projection_diff = view_proj_diff.to_cols_array().into_iter().fold(0.0f32, |acc, x| acc.max(x));
+                
+                // Threshold for detecting zoom changes (adjustable)
+                let zoom_threshold = 0.01;
+                let projection_threshold = 0.1;
+                
+                // If projection or scale changed significantly, trigger temporal reset
+                if scale_diff > zoom_threshold {
+                    log::debug!("Zoom change detected: scale_diff={}, triggering temporal reset", scale_diff);
+                    1.0 // Reset temporal accumulation
+                } else if max_projection_diff > projection_threshold {
+                    log::debug!("Projection change detected: max_diff={}, triggering temporal reset", max_projection_diff);
+                    1.0 // Reset temporal accumulation
+                } else {
+                    0.0 // Normal temporal accumulation
+                }
+            } else {
+                0.0 // First frame, no reset needed
+            };
+            
+            // Update previous frame values
+            *prev_view_proj = current_view_proj;
+            *prev_camera_scale = current_scale;
 
-            camera_params.view_proj = projection * inverse_view;
+            camera_params.view_proj = current_view_proj;
             camera_params.inverse_view_proj = view * inverse_projection;
             camera_params.screen_size = Vec2::new(
                 gpu_target_sizes.primary_target_size.x,
@@ -178,12 +222,16 @@ pub fn system_extract_pipeline_assets(
             let scale = 2.0;
             camera_params.sdf_scale     = Vec2::splat(scale);
             camera_params.inv_sdf_scale = Vec2::splat(1. / scale);
+            camera_params.temporal_reset = projection_change;
 
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose =
                 camera_global_transform.translation().truncate();
         } else {
             log::warn!("Failed to get camera");
+            let camera_params = gpu_pipeline_assets.camera_params.get_mut();
+            camera_params.temporal_reset = 0.0;
+            
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose = Vec2::ZERO;
         }

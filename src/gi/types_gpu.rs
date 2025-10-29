@@ -60,6 +60,7 @@ pub struct GpuCameraParams {
     pub inverse_view_proj: Mat4,
     pub sdf_scale:         Vec2,
     pub inv_sdf_scale:     Vec2,
+    pub temporal_reset:    f32,
 }
 
 #[rustfmt::skip]

@@ -23,9 +23,20 @@ Experimental dynamic 2D global illumination system for Bevy, based on SDF ray-ma
 cargo run --example minimal
 cargo run --example krypta
 cargo run --example movement
+cargo run --example zoom_test  # NEW: Test zoom lighting improvements
 ```
 
 ![Bevy Magic Light 2D – Demo](https://github.com/zaycev/bevy-magic-light-2d/blob/main/static/demo.gif?raw=true)
+
+### Zoom Lighting Improvements
+
+The system now includes improved temporal accumulation handling during camera zoom operations.
+
+- **Fixed**: Visual artifacts during camera zoom
+- **Enhanced**: Stable lighting during projection changes  
+- **Testing**: Use `zoom_test` example to verify improvements
+
+See [docs/zoom-improvements.md](docs/zoom-improvements.md) for detailed technical information.
 
 Implementation is based on several approaches:
 

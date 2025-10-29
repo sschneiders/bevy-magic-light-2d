@@ -7,6 +7,7 @@ struct CameraParams {
     inverse_view_proj :  mat4x4<f32>,
     sdf_scale: vec2<f32>,
     inv_sdf_scale: vec2<f32>,
+    temporal_reset: f32,
 }
 
 fn screen_to_ndc(
