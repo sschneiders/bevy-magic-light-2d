@@ -1,7 +1,8 @@
 use bevy::prelude::*;
+use bevy::render::extract_resource::ExtractResource;
 
 /// Tracks camera projection changes for temporal data invalidation
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, ExtractResource)]
 pub struct ProjectionTracker {
     /// Previous frame's view-projection matrix
     pub previous_view_proj: Option<Mat4>,
