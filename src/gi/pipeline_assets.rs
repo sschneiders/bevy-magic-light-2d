@@ -5,6 +5,7 @@ use bevy::render::Extract;
 use rand::Rng;
 
 use crate::gi::constants::GI_SCREEN_PROBE_SIZE;
+use crate::gi::projection_tracker::ProjectionTracker;
 use crate::gi::resource::ComputedTargetSizes;
 use crate::gi::types::{LightOccluder2D, OmniLightSource2D, SkylightLight2D, SkylightMask2D};
 use crate::gi::types_gpu::{
@@ -96,11 +97,16 @@ pub fn system_extract_pipeline_assets(
 
     mut gpu_target_sizes:       ResMut<ComputedTargetSizes>,
     mut gpu_pipeline_assets:    ResMut<LightPassPipelineAssets>,
+    mut gpu_projection_tracker: ResMut<ProjectionTracker>,
     mut gpu_frame_counter:      Local<i32>,
 ) {
     let light_pass_config = &res_light_settings.light_pass_params;
 
     *gpu_target_sizes = **res_target_sizes;
+
+    // Track projection changes across the entire function
+    let mut projection_change_detected = false;
+    let mut scale_change = 0.0;
 
     {
         let light_sources = gpu_pipeline_assets.light_sources.get_mut();
@@ -164,7 +170,16 @@ pub fn system_extract_pipeline_assets(
             let view = camera_global_transform.to_matrix();
             let inverse_view = view.inverse();
 
-            camera_params.view_proj = projection * inverse_view;
+            let view_proj = projection * inverse_view;
+            
+            // Detect projection changes for temporal data handling
+            let (change_detected, scale_delta) = 
+                gpu_projection_tracker.detect_projection_change(view_proj);
+            
+            projection_change_detected = change_detected;
+            scale_change = scale_delta;
+            
+            camera_params.view_proj = view_proj;
             camera_params.inverse_view_proj = view * inverse_projection;
             camera_params.screen_size = Vec2::new(
                 gpu_target_sizes.primary_target_size.x,
@@ -178,6 +193,9 @@ pub fn system_extract_pipeline_assets(
             let scale = 2.0;
             camera_params.sdf_scale     = Vec2::splat(scale);
             camera_params.inv_sdf_scale = Vec2::splat(1. / scale);
+
+            // Update projection tracker for next frame
+            gpu_projection_tracker.update_projection(view_proj);
 
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose =
@@ -202,6 +220,10 @@ pub fn system_extract_pipeline_assets(
         light_pass_params.indirect_light_contrib      = light_pass_config.indirect_light_contrib;
         light_pass_params.indirect_rays_radius_factor = light_pass_config.indirect_rays_radius_factor;
         light_pass_params.indirect_rays_per_sample    = light_pass_config.indirect_rays_per_sample;
+        
+        // Set projection change detection flags for shader use
+        light_pass_params.projection_change_detected = if projection_change_detected { 1 } else { 0 };
+        light_pass_params.projection_scale_change = scale_change;
     }
 
     {

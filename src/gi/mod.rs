@@ -27,12 +27,14 @@ use crate::gi::pipeline_assets::{
     EmbeddedShaderDependencies,
     LightPassPipelineAssets,
 };
+use crate::gi::projection_tracker::ProjectionTracker;
 use crate::gi::resource::ComputedTargetSizes;
 use crate::prelude::BevyMagicLight2DSettings;
 
 mod constants;
 mod pipeline;
 mod pipeline_assets;
+mod projection_tracker;
 mod types_gpu;
 
 pub mod camera_viewer;
@@ -63,6 +65,7 @@ impl Plugin for BevyMagicLight2DPlugin
         .init_resource::<BevyMagicLight2DSettings>()
         .init_resource::<ComputedTargetSizes>()
         .init_resource::<EmbeddedShaderDependencies>()
+        .init_resource::<ProjectionTracker>()
         .add_systems(
             PreStartup,
             (

@@ -78,6 +78,10 @@ pub struct GpuLightPassParams {
     pub indirect_light_contrib:      f32,
     pub indirect_rays_per_sample:    i32,
     pub indirect_rays_radius_factor: f32,
+    
+    // Projection change detection for temporal data handling
+    pub projection_change_detected:  i32,
+    pub projection_scale_change:     f32,
 }
 
 impl Default for GpuLightPassParams
@@ -99,6 +103,9 @@ impl Default for GpuLightPassParams
 
             indirect_rays_per_sample:    64,
             indirect_rays_radius_factor: 3.0,
+            
+            projection_change_detected:   0,
+            projection_scale_change:      0.0,
         }
     }
 }

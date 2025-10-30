@@ -155,6 +155,14 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var total_irradiance   = min_irradiance;
     var total_weight       = 0.0;
 
+    // Handle projection changes - when detected, reduce temporal contribution
+    var temporal_weight_multiplier = 1.0;
+    if (cfg.projection_change_detected > 0) {
+        // Scale temporal weight reduction based on magnitude of projection change
+        // Larger projection changes result in more aggressive temporal data reduction
+        temporal_weight_multiplier = max(0.1, 1.0 - cfg.projection_scale_change * 5.0);
+    }
+
     // Sample radiance from previous frames.
     for (var i = 0; i < reservoir_size; i++) {
 
@@ -184,17 +192,24 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             probe_size_f32,
         );
 
-
-        // If probe is active, accumulate irradiance and weight.
+        // If probe is active, accumulate irradiance and weight with projection change handling.
         if r.weight > 0.0 {
-            total_irradiance += clamp(r.val, min_irradiance, max_irradiance);
-            total_weight     += r.weight;
+            let adjusted_weight = r.weight * temporal_weight_multiplier;
+            total_irradiance += clamp(r.val, min_irradiance, max_irradiance) * temporal_weight_multiplier;
+            total_weight     += adjusted_weight;
         }
     }
 
 
-    // Normalize and clamp.
-    total_irradiance = total_irradiance / total_weight;
+    // Normalize and clamp, handling case where temporal data might be invalid due to projection changes
+    if (total_weight > 0.001) {
+        total_irradiance = total_irradiance / total_weight;
+    } else {
+        // Fallback to zero contribution when temporal data is invalid
+        total_irradiance = min_irradiance;
+        total_weight = 0.001; // Small non-zero weight to avoid division issues
+    }
+    
     total_irradiance = clamp(total_irradiance, min_irradiance, max_irradiance);
 
     var l = vec3<f32>(0.001 + dot(total_irradiance, vec3<f32>(1.0/3.0)));
