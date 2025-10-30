@@ -57,6 +57,7 @@ impl Plugin for BevyMagicLight2DPlugin
     {
         app.add_plugins((
             ExtractResourcePlugin::<GiTargetsWrapper>::default(),
+            ExtractResourcePlugin::<ProjectionTracker>::default(),
             Material2dPlugin::<PostProcessingMaterial>::default(),
             bevy_egui::EguiPlugin::default(),
         ))
