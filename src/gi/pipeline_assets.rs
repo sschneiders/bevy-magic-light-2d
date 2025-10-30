@@ -97,7 +97,7 @@ pub fn system_extract_pipeline_assets(
 
     mut gpu_target_sizes:       ResMut<ComputedTargetSizes>,
     mut gpu_pipeline_assets:    ResMut<LightPassPipelineAssets>,
-    mut gpu_projection_tracker: ResMut<ProjectionTracker>,
+    mut projection_tracker:     ResMut<ProjectionTracker>,
     mut gpu_frame_counter:      Local<i32>,
 ) {
     let light_pass_config = &res_light_settings.light_pass_params;
@@ -174,7 +174,7 @@ pub fn system_extract_pipeline_assets(
             
             // Detect projection changes for temporal data handling
             let (change_detected, scale_delta) = 
-                gpu_projection_tracker.detect_projection_change(view_proj);
+                projection_tracker.detect_projection_change(view_proj);
             
             projection_change_detected = change_detected;
             scale_change = scale_delta;
@@ -195,7 +195,7 @@ pub fn system_extract_pipeline_assets(
             camera_params.inv_sdf_scale = Vec2::splat(1. / scale);
 
             // Update projection tracker for next frame
-            gpu_projection_tracker.update_projection(view_proj);
+            projection_tracker.update_projection(view_proj);
 
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose =
