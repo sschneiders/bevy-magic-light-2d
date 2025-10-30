@@ -29,6 +29,9 @@ bevy_egui = "0.38.*"
 log = "0.4.*"
 rand = "0.9.*"
 
+[dev-dependencies]
+env_logger = "0.11.*"
+
 [features]
 default = ["egui"]
 egui = ["dep:bevy-inspector-egui"]

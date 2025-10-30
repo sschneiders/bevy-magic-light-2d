@@ -196,17 +196,22 @@ pub fn system_extract_pipeline_assets(
                 let camera_movement = (camera_global_transform.translation() - *prev_camera_translation).length_squared();
                 let camera_movement_threshold = 0.01; // Sensitive to movement as well
                 
+                log::debug!("Camera analysis: movement={}, scale_diff={}, max_proj_diff={}, thresholds: movement={:>8}, scale={:>8}, proj={:>8}", 
+                    camera_movement.sqrt(), scale_diff, max_projection_diff, 
+                    camera_movement_threshold, zoom_threshold, projection_threshold);
+                
                 // If camera moved significantly or projection changed, trigger temporal reset
                 if camera_movement > camera_movement_threshold {
-                    log::debug!("Camera movement detected: movement={}, triggering temporal reset", camera_movement.sqrt());
+                    log::info!("CAMERA MOVEMENT DETECTED: movement={} > {}, triggering temporal reset", camera_movement.sqrt(), camera_movement_threshold);
                     1.0 // Reset temporal accumulation
                 } else if scale_diff > zoom_threshold {
-                    log::debug!("Zoom change detected: scale_diff={}, triggering temporal reset", scale_diff);
+                    log::info!("ZOOM CHANGE DETECTED: scale_diff={} > {}, triggering temporal reset", scale_diff, zoom_threshold);
                     1.0 // Reset temporal accumulation
                 } else if max_projection_diff > projection_threshold {
-                    log::debug!("Projection change detected: max_diff={}, triggering temporal reset", max_projection_diff);
+                    log::info!("PROJECTION CHANGE DETECTED: max_diff={} > {}, triggering temporal reset", max_projection_diff, projection_threshold);
                     1.0 // Reset temporal accumulation
                 } else {
+                    log::debug!("No camera changes detected - normal temporal accumulation");
                     0.0 // Normal temporal accumulation
                 }
             } else {
@@ -233,6 +238,8 @@ pub fn system_extract_pipeline_assets(
             camera_params.sdf_scale     = Vec2::splat(scale);
             camera_params.inv_sdf_scale = Vec2::splat(1. / scale);
             camera_params.temporal_reset = projection_change;
+            
+            log::debug!("Setting temporal_reset flag to: {} (prev frame_counter: {})", projection_change, *gpu_frame_counter);
 
             let probes = gpu_pipeline_assets.probes.get_mut();
             probes.data[*gpu_frame_counter as usize].camera_pose =
@@ -240,8 +247,10 @@ pub fn system_extract_pipeline_assets(
                 
             // Reset frame counter during zoom to break temporal sampling completely
             if projection_change > 0.5 {
+                log::warn!("TEMPORAL RESET TRIGGERED: resetting frame_counter from {} to 0", *gpu_frame_counter);
                 *gpu_frame_counter = 0;
-                log::debug!("Reset frame counter due to temporal reset");
+            } else {
+                log::debug!("No temporal reset - incrementing frame_counter from {} to {}", *gpu_frame_counter, *gpu_frame_counter + 1);
             }
         } else {
             log::warn!("Failed to get camera");
@@ -279,5 +288,7 @@ pub fn system_extract_pipeline_assets(
         }
     }
 
+    let old_counter = *gpu_frame_counter;
     *gpu_frame_counter = (*gpu_frame_counter + 1) % (GI_SCREEN_PROBE_SIZE * GI_SCREEN_PROBE_SIZE);
+    log::debug!("Frame counter incremented: {} -> {}", old_counter, *gpu_frame_counter);
 }

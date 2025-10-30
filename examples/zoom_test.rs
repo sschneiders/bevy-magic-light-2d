@@ -7,6 +7,10 @@ use bevy_magic_light_2d::prelude::*;
 
 fn main()
 {
+    // Enable debug logging to track zoom detection
+    std::env::set_var("RUST_LOG", "debug");
+    env_logger::init();
+    
     // Basic setup with zoom capability
     App::new()
         .insert_resource(ClearColor(Color::srgba_u8(20, 20, 30, 255)))
